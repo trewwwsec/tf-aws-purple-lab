@@ -196,7 +196,7 @@ resource "aws_instance" "windows_endpoint" {
   key_name               = var.ssh_key_name
 
   root_block_device {
-    volume_size           = var.endpoint_volume_size
+    volume_size           = 35 # Windows requires minimum 30GB
     volume_type           = "gp3"
     delete_on_termination = true
     encrypted             = true
