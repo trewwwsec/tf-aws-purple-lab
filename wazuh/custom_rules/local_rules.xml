@@ -119,9 +119,9 @@
      MITRE: T1548.003 - Sudo and Sudo Caching
      ======================================== -->
 
-<!-- Base sudo command (informational) -->
+<!-- Base sudo command (informational) - triggers on any sudo execution -->
 <rule id="200020" level="3">
-  <if_sid>5401</if_sid>
+  <if_sid>5403</if_sid>
   <description>Sudo command executed</description>
   <mitre>
     <id>T1548.003</id>
@@ -431,7 +431,7 @@
 <!-- RDP login from unusual source -->
 <rule id="200091" level="10">
   <if_sid>200090</if_sid>
-  <srcip>!192.168.|!10.|!172.16.</srcip>
+  <srcip>!10.0.0.0/8</srcip>
   <description>RDP login from external/unusual IP address</description>
   <mitre>
     <id>T1021.001</id>
