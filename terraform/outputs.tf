@@ -39,9 +39,9 @@ output "ssh_commands" {
 output "setup_summary" {
   description = "Quick reference for next steps"
   value = {
-    wazuh_dashboard  = "https://${aws_instance.wazuh_server.public_ip}"
-    credentials_file = "SSH to Wazuh server and run: sudo tar -xvf wazuh-install-files.tar && sudo cat wazuh-install-files/wazuh-passwords.txt"
-    next_steps       = "1) Wait ~10 min for installation, 2) Retrieve credentials, 3) Access dashboard, 4) Configure detection rules"
+    wazuh_dashboard = "https://${aws_instance.wazuh_server.public_ip}"
+    get_credentials = "Run: ./scripts/get-wazuh-info.sh"
+    next_steps      = "1) Wait ~10 min for installation, 2) Run ./scripts/get-wazuh-info.sh, 3) Access dashboard, 4) Configure detection rules"
   }
 }
 

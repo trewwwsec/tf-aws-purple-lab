@@ -237,12 +237,14 @@ ssh_private_key_path = "~/.ssh/cloud-soc-key.pem"  # Local path to private key
 ### Access Wazuh Dashboard
 
 ```bash
-# SSH to Wazuh server
-ssh -i ~/.ssh/your-key.pem ubuntu@<WAZUH_PUBLIC_IP>
+# Easy method — auto-detects IP and SSH key from Terraform
+./scripts/get-wazuh-info.sh
 
-# Get default credentials
-sudo tar -xvf wazuh-install-files.tar
-sudo cat wazuh-install-files/wazuh-passwords.txt
+# Show all component passwords (indexer, dashboard, API, etc.)
+./scripts/get-wazuh-info.sh --all
+
+# Manual override
+./scripts/get-wazuh-info.sh --ip <WAZUH_PUBLIC_IP> --key ~/.ssh/your-key.pem
 
 # Access dashboard at https://<WAZUH_PUBLIC_IP>:443
 ```
@@ -308,6 +310,10 @@ tf-aws-soc/
 │       ├── wazuh_server.sh          # Wazuh installation
 │       ├── linux_endpoint.sh        # Linux agent setup
 │       └── windows_endpoint.ps1     # Windows agent setup
+│
+├── 📁 scripts/                      # Helper Scripts
+│   ├── get-wazuh-info.sh           # Retrieve Wazuh admin credentials
+│   └── setup-local-mac-agent.sh     # Install Wazuh agent on local Mac
 │
 ├── 📁 wazuh/                        # SIEM Configuration
 │   └── custom_rules/
