@@ -8,7 +8,7 @@
 [![macOS](https://img.shields.io/badge/macOS-Supported-lightgrey?style=for-the-badge&logo=apple)](detections/04-macos-attacks.md)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-> **A production-ready Cloud Security Operations Center (SOC) built with Infrastructure as Code, featuring 2,000+ MITRE ATT&CK-mapped detection rules (including SOCFortress community rules) across Windows, Linux, and macOS, AI-powered alert analysis, automated attack simulations, and comprehensive incident response playbooks.**
+> **A production-ready Cloud Security Operations Center (SOC) built with Infrastructure as Code, featuring 2,226+ detection rules across Windows, Linux, and macOS. Includes custom rules + SOCFortress community rules with 466+ MITRE ATT&CK techniques mapped, AI-powered alert analysis, automated attack simulations, and comprehensive incident response playbooks.**
 
 ---
 
@@ -37,8 +37,10 @@ This project demonstrates the design and implementation of a **complete Cloud Se
 
 ### 💡 Key Highlights
 
-- **2,000+ Detection Rules** combining custom + SOCFortress community rules
-- **SOCFortress Integration** - Trusted community detection rules automatically deployed
+- **2,226+ Detection Rules** (70 rule files) combining custom + SOCFortress community rules
+- **466+ MITRE ATT&CK Techniques** mapped across 11 tactics
+- **SOCFortress Integration** - 2,144 trusted community detection rules automatically deployed
+- **82 Custom Rules** - 100% MITRE mapped (50 Linux/Windows + 32 macOS)
 - **Multi-Platform Support**: Windows, Linux, and macOS detection
 - **AI-Powered Alert Analysis** with LLM integration for intelligent triage
 - **Automated Attack Simulations** based on Atomic Red Team
@@ -70,17 +72,17 @@ This project demonstrates the design and implementation of a **complete Cloud Se
 ### 🔍 Detection Engineering
 | Feature | Description |
 |---------|-------------|
-| **2,000+ Detection Rules** | Custom + SOCFortress community rules |
-| **SOCFortress Integration** | Auto-deployed via Terraform |
+| **2,226+ Detection Rules** | 70 rule files (custom + SOCFortress) |
+| **SOCFortress Integration** | 2,144 community rules auto-deployed |
 | **Multi-Platform** | Windows, Linux, macOS support |
-| **MITRE ATT&CK Mapping** | 12 tactics, 100+ techniques covered |
+| **MITRE ATT&CK Mapping** | 11 tactics, 466+ techniques covered |
 | **Compliance Mapping** | PCI DSS, NIST, GDPR, HIPAA |
 | **< 2 min MTTD** | Mean Time to Detect target |
 
 ### 🍎 macOS Support
 | Feature | Description |
 |---------|-------------|
-| **28 Detection Rules** | macOS-specific detections |
+| **32 Detection Rules** | macOS-specific detections |
 | **Persistence** | Launch Agents, Daemons, Login Items |
 | **Credential Access** | Keychain, Safari, Chrome |
 | **Defense Evasion** | Gatekeeper, SIP, TCC bypass |
@@ -309,8 +311,8 @@ tf-aws-soc/
 │
 ├── 📁 wazuh/                        # SIEM Configuration
 │   └── custom_rules/
-│       ├── local_rules.xml          # 45 Windows/Linux rules
-│       └── macos_rules.xml          # 28 macOS rules
+│       ├── local_rules.xml          # 50 Windows/Linux rules
+│       └── macos_rules.xml          # 32 macOS rules
 │
 ├── 📁 detections/                   # Detection Documentation
 │   ├── README.md                    # Deployment guide
@@ -386,20 +388,31 @@ tf-aws-soc/
 | **macOS Persistence** | 5 | macOS | T1543.001/004 |
 | **macOS Credential Access** | 5 | macOS | T1555.001 |
 | **macOS Defense Evasion** | 5 | macOS | T1553, T1562 |
-| **TOTAL** | **73** | **3 platforms** | **50+** |
+| **TOTAL** | **82** | **3 platforms** | **50+** |
+
+### Detection Sources
+
+| Ruleset | Count | Description |
+|---------|-------|-------------|
+| **Custom Rules** | 82 | 50 local_rules + 32 macOS rules (100% MITRE mapped) |
+| **SOCFortress** | 2,144 | Community rules from SOCFortress (70 files) |
+| **TOTAL** | **2,226+** | All detection rules combined |
 
 ### MITRE ATT&CK Coverage
 
 ```
-Tactics: ████████████████████████░░░ 11/12 (92%)
+Tactics: ████████████████████░░░░░░░ 11/14 (79%)
 
 ✅ Initial Access      ✅ Execution
 ✅ Persistence         ✅ Privilege Escalation  
 ✅ Defense Evasion     ✅ Credential Access
-✅ Discovery           ✅ Command & Control
-✅ Lateral Movement    ✅ Collection
+✅ Discovery           ✅ Lateral Movement
+✅ Collection          ✅ Command & Control
 ✅ Exfiltration        ❌ Impact
+❌ Reconnaissance      ❌ Resource Development
 ```
+
+**Total Coverage**: 466+ unique MITRE ATT&CK techniques mapped across 2,226+ rules
 
 ### Platform Coverage
 
@@ -636,12 +649,12 @@ python src/analyze_alert.py --demo
 | Component | Files | Lines of Code |
 |-----------|-------|---------------|
 | **Terraform Infrastructure** | 7 | ~500 |
-| **Detection Rules** | 8 | 3,200+ |
+| **Detection Rules** | 70 | 2,226+ rules |
 | **Attack Simulations** | 7 | 1,850+ |
 | **Incident Response** | 8 | 4,500+ |
 | **Architecture Diagrams** | 5 | 1,292 |
 | **AI Alert Analyst** | 8 | 1,500+ |
-| **TOTAL** | **43** | **12,800+** |
+| **TOTAL** | **105** | **12,800+** |
 
 ---
 
