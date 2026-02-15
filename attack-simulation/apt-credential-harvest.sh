@@ -10,13 +10,16 @@
 # WARNING: FOR AUTHORIZED TESTING ONLY - Run only in controlled environments
 #
 # MITRE ATT&CK Coverage:
-#   T1003.008 - /etc/passwd and /etc/shadow
+#   T1003.008 - /etc/passwd and /etc/shadow (Linux)
+#   T1555.001 - Keychain (macOS)
 #   T1552.004 - Private Keys (SSH)
 #   T1552.003 - Bash History
 #   T1552.001 - Credentials in Files (Cloud)
 #   T1558.003 - Kerberoasting
 #   T1555.003 - Credentials from Web Browsers
-#   T1003.007 - Proc Filesystem
+#   T1003.007 - Proc Filesystem (Linux)
+#
+# PLATFORMS: Linux, macOS
 #
 # =============================================================================
 
@@ -44,28 +47,47 @@ register_cleanup cleanup
 # TEST FUNCTIONS
 # =============================================================================
 
-# Test 1: /etc/shadow access (APT28 - T1003.008)
-test_shadow_access() {
-    print_section "🔓" "Shadow File Access (T1003.008 — APT28)"
+# Test 1: Credential Store Access (APT28 - T1003.008 / T1555.001)
+test_credential_store_access() {
+    if is_linux; then
+        print_section "🔓" "Shadow File Access (T1003.008 — APT28)"
+        log_info "[1/8] Attempting to read /etc/shadow (credential dumping)"
 
-    log_info "[1/7] Attempting to read /etc/shadow (credential dumping)"
+        echo -e "  ${YELLOW}▸${NC} Attempting: cat /etc/shadow"
+        cat /etc/shadow > "$WORKDIR/shadow_dump.txt" 2>&1 || true
+        log_info "Direct shadow read attempted"
 
-    # Attempt 1: Direct read
-    echo -e "  ${YELLOW}▸${NC} Attempting: cat /etc/shadow"
-    cat /etc/shadow > "$WORKDIR/shadow_dump.txt" 2>&1 || true
-    log_info "Direct shadow read attempted"
+        echo -e "  ${YELLOW}▸${NC} Attempting: paste /etc/passwd /etc/shadow"
+        paste /etc/passwd /etc/shadow > "$WORKDIR/unshadow.txt" 2>&1 || true
+        log_info "Unshadow merge attempted"
 
-    # Attempt 2: Unshadow-style merge
-    echo -e "  ${YELLOW}▸${NC} Attempting: paste /etc/passwd /etc/shadow"
-    paste /etc/passwd /etc/shadow > "$WORKDIR/unshadow.txt" 2>&1 || true
-    log_info "Unshadow merge attempted"
+        echo -e "  ${YELLOW}▸${NC} Attempting: getent shadow"
+        getent shadow > "$WORKDIR/getent_shadow.txt" 2>&1 || true
+        log_info "getent shadow attempted"
 
-    # Attempt 3: getent (alternative credential extraction)
-    echo -e "  ${YELLOW}▸${NC} Attempting: getent shadow"
-    getent shadow > "$WORKDIR/getent_shadow.txt" 2>&1 || true
-    log_info "getent shadow attempted"
+        echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100070 (credential dump), Wazuh syscheck"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100070 (credential dump), Wazuh syscheck"
+    elif is_darwin; then
+        print_section "🔓" "Keychain Credential Access (T1555.001 — APT29)"
+        log_info "[1/8] Accessing macOS Keychain credential stores"
+
+        echo -e "  ${YELLOW}▸${NC} Listing available keychains"
+        security list-keychains 2>/dev/null || true
+
+        echo -e "  ${YELLOW}▸${NC} Dumping keychain metadata (no passwords)"
+        security dump-keychain 2>/dev/null | head -30 || true
+        log_info "Keychain dump attempted"
+
+        echo -e "  ${YELLOW}▸${NC} Checking for keychain database files"
+        ls -la ~/Library/Keychains/ 2>/dev/null || true
+
+        echo -e "  ${YELLOW}▸${NC} Attempting to find login keychain password entries"
+        security find-generic-password -s "com.apple.test.soc" 2>/dev/null || \
+            echo -e "    No matching entry (expected)"
+        log_info "Keychain access complete"
+
+        echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100220/100221 (Keychain access)"
+    fi
     echo ""
 }
 
@@ -75,9 +97,15 @@ test_ssh_key_theft() {
 
     log_info "[2/7] Enumerating and accessing SSH private keys"
 
-    # Enumerate SSH directories
+    # Enumerate SSH directories (platform-aware home dirs)
     echo -e "  ${YELLOW}▸${NC} Enumerating SSH directories across users"
-    for user_home in /home/* /root; do
+    local home_dirs
+    if is_darwin; then
+        home_dirs="/Users/*"
+    else
+        home_dirs="/home/* /root"
+    fi
+    for user_home in $home_dirs; do
         if [ -d "$user_home/.ssh" ] 2>/dev/null; then
             echo -e "    Found: $user_home/.ssh/"
             ls -la "$user_home/.ssh/" 2>/dev/null || true
@@ -111,9 +139,15 @@ test_history_mining() {
         ~/.bash_history 2>/dev/null | head -5 || \
         echo -e "    No credential patterns found in current history"
 
-    # Scan all user histories
+    # Scan all user histories (platform-aware)
     echo -e "  ${YELLOW}▸${NC} Scanning all user shell histories"
-    for hist in /home/*/.bash_history /root/.bash_history; do
+    local hist_dirs
+    if is_darwin; then
+        hist_dirs="/Users/*/.bash_history /Users/*/.zsh_history"
+    else
+        hist_dirs="/home/*/.bash_history /root/.bash_history"
+    fi
+    for hist in $hist_dirs; do
         if [ -f "$hist" ] 2>/dev/null; then
             echo -e "    Scanning: $hist"
             grep -iEc "(password|secret|token|key)" "$hist" 2>/dev/null || true
@@ -267,9 +301,13 @@ test_proc_memory() {
         done
     fi
 
-    # Check for credential files in /tmp and /dev/shm
+    # Check for credential files in temp locations
     echo -e "  ${YELLOW}▸${NC} Checking tmpfs for credential artifacts"
-    find /tmp /dev/shm -name "*.key" -o -name "*.pem" -o -name "*token*" \
+    local tmp_dirs="/tmp"
+    if is_linux; then
+        tmp_dirs="/tmp /dev/shm"
+    fi
+    find $tmp_dirs -name "*.key" -o -name "*.pem" -o -name "*token*" \
         -o -name "*credential*" 2>/dev/null | head -10 || true
     log_info "Process memory scan complete"
 
@@ -330,7 +368,7 @@ main() {
     log_info "Log file: $LOG_FILE"
     echo ""
 
-    test_shadow_access
+    test_credential_store_access
     test_ssh_key_theft
     test_history_mining
     test_cloud_credential_theft

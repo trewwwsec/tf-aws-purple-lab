@@ -18,6 +18,8 @@
 #   T1070.002 - Clear Linux or Mac System Logs
 #   T1070.006 - Timestomp
 #
+# PLATFORMS: Linux, macOS
+#
 # =============================================================================
 
 set -euo pipefail
@@ -64,7 +66,7 @@ test_network_recon() {
 
     # DNS enumeration
     echo -e "  ${YELLOW}▸${NC} Internal DNS enumeration"
-    cat /etc/resolv.conf 2>/dev/null || true
+    cat /etc/resolv.conf 2>/dev/null || scutil --dns 2>/dev/null | head -20 || true
     host -t any "$(hostname -d 2>/dev/null || echo 'localdomain')" 2>/dev/null || true
     log_info "DNS enumeration complete"
 
@@ -120,28 +122,48 @@ test_service_enumeration() {
 
     log_info "[3/7] Enumerating system services and scheduled tasks"
 
-    # Systemd services
-    echo -e "  ${YELLOW}▸${NC} Listing active systemd services"
-    systemctl list-units --type=service --state=running 2>/dev/null | head -15 || \
-        service --status-all 2>/dev/null | head -15 || true
+    # Service enumeration (platform-aware)
+    if is_linux; then
+        echo -e "  ${YELLOW}▸${NC} Listing active systemd services"
+        systemctl list-units --type=service --state=running 2>/dev/null | head -15 || \
+            service --status-all 2>/dev/null | head -15 || true
 
-    # Interesting service discovery
-    echo -e "  ${YELLOW}▸${NC} Checking for high-value services"
-    for svc in docker kubelet postgresql mysql redis mongod elasticsearch vault consul; do
-        if systemctl is-active "$svc" &>/dev/null; then
-            echo -e "    ${RED}Running:${NC} $svc"
-        fi
-    done
+        echo -e "  ${YELLOW}▸${NC} Checking for high-value services"
+        for svc in docker kubelet postgresql mysql redis mongod elasticsearch vault consul; do
+            if systemctl is-active "$svc" &>/dev/null; then
+                echo -e "    ${RED}Running:${NC} $svc"
+            fi
+        done
+    elif is_darwin; then
+        echo -e "  ${YELLOW}▸${NC} Listing running launchd services"
+        launchctl list 2>/dev/null | head -20 || true
+
+        echo -e "  ${YELLOW}▸${NC} Checking for high-value services"
+        for svc in com.docker com.apple.ftp-proxy org.postgresql org.mongodb; do
+            launchctl print "system/$svc" 2>/dev/null && \
+                echo -e "    ${RED}Running:${NC} $svc" || true
+        done
+    fi
 
     # Cron jobs
     echo -e "  ${YELLOW}▸${NC} Enumerating cron jobs"
     crontab -l 2>/dev/null || echo -e "    No crontab for $(whoami)"
-    ls -la /etc/cron.d/ 2>/dev/null | head -10 || true
-    cat /etc/crontab 2>/dev/null | grep -v "^#" | head -10 || true
+    if is_linux; then
+        ls -la /etc/cron.d/ 2>/dev/null | head -10 || true
+        cat /etc/crontab 2>/dev/null | grep -v "^#" | head -10 || true
+    elif is_darwin; then
+        ls -la /Library/LaunchDaemons/ 2>/dev/null | head -10 || true
+        ls -la ~/Library/LaunchAgents/ 2>/dev/null | head -10 || true
+    fi
 
     # Listening services
     echo -e "  ${YELLOW}▸${NC} Enumerating listening ports"
-    ss -tlnp 2>/dev/null | head -15 || netstat -tlnp 2>/dev/null | head -15 || true
+    if is_linux; then
+        ss -tlnp 2>/dev/null | head -15 || netstat -tlnp 2>/dev/null | head -15 || true
+    elif is_darwin; then
+        lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | head -15 || \
+            netstat -an -p tcp 2>/dev/null | grep LISTEN | head -15 || true
+    fi
     log_info "Service enumeration complete"
 
     echo -e "  ${GREEN}Expected Alerts:${NC} Discovery technique alerts"
@@ -165,7 +187,11 @@ test_lotl_discovery() {
 
     # Users with shells
     echo -e "  ${YELLOW}▸${NC} Enumerating interactive user accounts"
-    grep -E "/bin/(ba)?sh$" /etc/passwd 2>/dev/null || true
+    if is_linux; then
+        grep -E "/bin/(ba)?sh$" /etc/passwd 2>/dev/null || true
+    elif is_darwin; then
+        dscl . -list /Users UserShell 2>/dev/null | grep -E "/(ba)?sh$" || true
+    fi
 
     # Sudo configuration discovery
     echo -e "  ${YELLOW}▸${NC} Checking sudo configuration"
@@ -235,11 +261,17 @@ test_log_tampering() {
     ls -la /var/log/wtmp 2>/dev/null || true
     last -5 2>/dev/null || true
 
-    # Attempt to access auth logs
+    # Attempt to access auth logs (platform-aware)
     echo -e "  ${YELLOW}▸${NC} Accessing authentication logs"
-    tail -5 /var/log/auth.log 2>/dev/null || \
-        tail -5 /var/log/secure 2>/dev/null || \
-        echo -e "    Cannot read auth logs"
+    if is_linux; then
+        tail -5 /var/log/auth.log 2>/dev/null || \
+            tail -5 /var/log/secure 2>/dev/null || \
+            echo -e "    Cannot read auth logs"
+    elif is_darwin; then
+        log show --predicate 'subsystem == "com.apple.Authorization"' --last 5m 2>/dev/null | head -10 || \
+            echo -e "    Cannot read unified logs"
+        ls -la /var/log/system.log 2>/dev/null || true
+    fi
 
     # Simulate history evasion techniques
     echo -e "  ${YELLOW}▸${NC} History evasion techniques (demonstration only):"
