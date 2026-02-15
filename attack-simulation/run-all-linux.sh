@@ -70,6 +70,11 @@ START_TIME=$(date +%s)
 # Run simulations
 run_simulation "privilege-escalation.sh" "Privilege Escalation (T1548.003)"
 
+# APT Red Team Simulations
+run_simulation "apt-credential-harvest.sh" "APT Credential Harvesting (T1003, T1552, T1555)"
+run_simulation "apt-lateral-movement.sh" "APT Lateral Movement & Discovery (T1046, T1018, T1070)"
+run_simulation "apt-c2-exfil.sh" "APT C2 & Data Exfiltration (T1071, T1048, T1567)"
+
 # Note: SSH brute force requires external target, skip if not configured
 if [ -n "$SSH_TARGET_HOST" ]; then
     run_simulation "ssh-brute-force.sh" "SSH Brute Force (T1110)"
