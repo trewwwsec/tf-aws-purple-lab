@@ -2,12 +2,25 @@
 """
 AI Client - Handles communication with LLM providers for alert analysis.
 Supports OpenAI, Anthropic Claude, and local Ollama.
+
+Now with RAG (Retrieval-Augmented Generation) integration for enhanced context.
 """
 
 import os
 import json
+import logging
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
+
+# RAG Integration
+try:
+    from rag_retriever import get_rag_retriever, RAGRetriever
+
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class BaseLLMClient(ABC):
@@ -136,19 +149,34 @@ class AIClient:
     """
     Main AI client that handles LLM interactions for alert analysis.
     Automatically selects the appropriate provider based on available API keys.
+
+    Features RAG (Retrieval-Augmented Generation) for enhanced context from
+    historical alerts, threat intelligence, and playbooks.
     """
 
-    def __init__(self, provider: str = None):
+    def __init__(self, provider: str = None, use_rag: bool = True):
         """
         Initialize the AI client.
 
         Args:
             provider: Force a specific provider ('openai', 'anthropic', 'ollama')
                      If None, auto-detect based on available API keys.
+            use_rag: Enable RAG context retrieval (default: True)
         """
         self.provider = provider or self._detect_provider()
         self.client = self._create_client()
         self.system_prompt = self._load_system_prompt()
+
+        # Initialize RAG retriever if available
+        self.use_rag = use_rag and RAG_AVAILABLE
+        self.rag_retriever = None
+        if self.use_rag:
+            try:
+                self.rag_retriever = get_rag_retriever()
+                logger.info("RAG retriever initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize RAG retriever: {e}")
+                self.use_rag = False
 
     def _detect_provider(self) -> str:
         """Auto-detect which LLM provider to use."""
@@ -197,6 +225,7 @@ Format your response as JSON with these keys:
         alert: Dict[str, Any],
         context: Dict[str, Any] = None,
         mitre_info: Dict[str, str] = None,
+        use_rag: bool = None,
     ) -> Dict[str, Any]:
         """
         Analyze a security alert and return structured analysis.
@@ -205,12 +234,30 @@ Format your response as JSON with these keys:
             alert: The raw Wazuh alert
             context: Additional context (related events, threat intel, etc.)
             mitre_info: MITRE ATT&CK technique information
+            use_rag: Override RAG usage for this analysis (default: use instance setting)
 
         Returns:
             Dictionary with title, summary, investigation_steps, recommended_actions
         """
-        # Build the analysis prompt
-        prompt = self._build_prompt(alert, context, mitre_info)
+        # Determine if we should use RAG for this analysis
+        should_use_rag = (
+            self.use_rag if use_rag is None else (use_rag and RAG_AVAILABLE)
+        )
+
+        # Retrieve RAG context if enabled
+        rag_context = None
+        if should_use_rag and self.rag_retriever:
+            try:
+                logger.info("Retrieving RAG context for alert analysis...")
+                rag_context = self.rag_retriever.retrieve_context(alert)
+                logger.info(
+                    f"RAG context retrieved: {rag_context.total_documents} documents"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to retrieve RAG context: {e}")
+
+        # Build the analysis prompt with RAG context
+        prompt = self._build_prompt(alert, context, mitre_info, rag_context)
 
         # Get AI response
         try:
@@ -235,12 +282,25 @@ Format your response as JSON with these keys:
             # Fallback to rule-based analysis
             analysis = self._fallback_analysis(alert, context, mitre_info)
 
+        # Add RAG metadata to analysis if used
+        if rag_context:
+            analysis["rag_context"] = {
+                "similar_alerts_count": len(rag_context.similar_alerts),
+                "threat_intel_count": len(rag_context.threat_intel),
+                "playbooks_count": len(rag_context.relevant_playbooks),
+                "retrieved_at": rag_context.retrieved_at,
+            }
+
         return analysis
 
     def _build_prompt(
-        self, alert: Dict[str, Any], context: Dict[str, Any], mitre_info: Dict[str, str]
+        self,
+        alert: Dict[str, Any],
+        context: Dict[str, Any],
+        mitre_info: Dict[str, str],
+        rag_context=None,
     ) -> str:
-        """Build the prompt for alert analysis."""
+        """Build the prompt for alert analysis, including RAG context if available."""
         rule_id = alert.get("rule", {}).get("id", "unknown")
         rule_desc = alert.get("rule", {}).get("description", "Unknown")
         severity = alert.get("rule", {}).get("level", 0)
@@ -267,6 +327,18 @@ MITRE ATT&CK CONTEXT:
 - Description: {mitre_info.get("description", "N/A")}
 """
 
+        # Add RAG context if available
+        if rag_context and rag_context.total_documents > 0:
+            prompt += f"""
+================================================================================
+HISTORICAL CONTEXT & THREAT INTELLIGENCE (Retrieved via RAG)
+================================================================================
+
+{rag_context.to_prompt_context()}
+
+================================================================================
+"""
+
         if context:
             prompt += f"""
 ADDITIONAL CONTEXT:
@@ -279,7 +351,17 @@ ADDITIONAL CONTEXT:
                 prompt += f"- Confidence Score: {ti.get('confidence', 0)}%\n"
 
         prompt += """
-Provide your analysis in JSON format with: title, summary, investigation_steps, recommended_actions
+INSTRUCTIONS:
+1. Use the historical context and threat intelligence above to enrich your analysis
+2. Reference similar past incidents and their outcomes if relevant
+3. Consider the recommended playbooks for response actions
+4. Provide your analysis in JSON format with these keys:
+   - title: A meaningful alert title (not just the rule ID)
+   - summary: Executive-friendly summary of the incident (include historical context insights)
+   - investigation_steps: List of specific steps to investigate (leverage similar past incidents)
+   - recommended_actions: List of actions with priority tags [IMMEDIATE], [SHORT-TERM], [LONG-TERM]
+
+Format your response as valid JSON.
 """
 
         return prompt
@@ -372,3 +454,52 @@ Provide your analysis in JSON format with: title, summary, investigation_steps, 
             "investigation_steps": investigation_steps,
             "recommended_actions": recommended_actions,
         }
+
+    def index_alert_for_rag(self, alert: Dict[str, Any]) -> bool:
+        """
+        Index an alert for future RAG retrieval.
+
+        This allows the alert to be found in future similarity searches.
+
+        Args:
+            alert: Wazuh alert dictionary to index
+
+        Returns:
+            True if indexed successfully
+        """
+        if not self.use_rag or not self.rag_retriever:
+            logger.warning("RAG not available, cannot index alert")
+            return False
+
+        try:
+            return self.rag_retriever.index_alert_for_rag(alert)
+        except Exception as e:
+            logger.error(f"Failed to index alert for RAG: {e}")
+            return False
+
+    def get_rag_status(self) -> Dict[str, Any]:
+        """
+        Get the current RAG status and statistics.
+
+        Returns:
+            Dictionary with RAG availability and statistics
+        """
+        status = {
+            "rag_available": self.use_rag and RAG_AVAILABLE,
+            "rag_enabled": self.use_rag,
+            "retriever_initialized": self.rag_retriever is not None,
+        }
+
+        if self.rag_retriever and self.rag_retriever.vector_store:
+            try:
+                stats = self.rag_retriever.vector_store.get_stats()
+                status["vector_store_stats"] = stats
+            except Exception as e:
+                status["vector_store_error"] = str(e)
+
+        return status
+
+    @staticmethod
+    def is_rag_available() -> bool:
+        """Check if RAG functionality is available."""
+        return RAG_AVAILABLE

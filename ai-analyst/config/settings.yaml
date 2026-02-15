@@ -127,3 +127,63 @@ anomaly_detection:
     file_integrity_anomalies: true
     volume_anomalies: true
 
+# RAG (Retrieval-Augmented Generation) Settings
+rag:
+  enabled: true
+
+  # Embedding model configuration
+  embedding:
+    # Model name for sentence-transformers
+    # Options: "all-MiniLM-L6-v2" (384d, fast), "all-mpnet-base-v2" (768d, higher quality)
+    model: "all-MiniLM-L6-v2"
+    
+    # Cache directory for model and embeddings
+    cache_dir: "~/.cache/ai-analyst/embeddings"
+
+  # OpenSearch configuration for vector storage
+  opensearch:
+    # Connection settings (can also use env vars: OPENSEARCH_HOST, OPENSEARCH_PASSWORD)
+    host: "localhost"
+    port: 9200
+    username: "admin"
+    # password: "set-via-env-var"
+    use_ssl: true
+    verify_certs: false
+
+  # Retrieval configuration
+  retrieval:
+    # Minimum similarity score (0-1) for results to be considered relevant
+    similarity_threshold: 0.7
+    
+    # Maximum number of results to retrieve per category
+    max_similar_alerts: 5
+    max_threat_intel: 3
+    max_playbooks: 2
+    
+    # Time range for historical context search
+    # Options: "1h", "24h", "7d", "30d"
+    time_range: "7d"
+    
+    # Enable hybrid search (combines text + vector similarity)
+    hybrid_search: true
+    
+    # Weights for hybrid search (must sum to 1.0)
+    # text_weight: weight for keyword matching
+    # vector_weight: weight for semantic similarity
+    text_weight: 0.3
+    vector_weight: 0.7
+
+  # Alert indexing
+  indexing:
+    # Automatically index alerts for future retrieval
+    auto_index: true
+    
+    # Minimum severity level to index (0-15)
+    min_level: 5
+    
+    # Index historical alerts on startup
+    index_historical: false
+    
+    # How far back to index historical alerts
+    historical_days: 30
+

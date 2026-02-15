@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Alert Enricher - Gathers additional context for security alerts.
-Includes threat intelligence, geolocation, and historical analysis.
+Includes threat intelligence, geolocation, historical analysis, and RAG indexing.
 """
 
 import os
@@ -9,6 +9,18 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
+
+# RAG Integration
+try:
+    from vector_store import VectorStore, get_vector_store
+    from embedding_service import EmbeddingService, get_embedding_service
+
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+
+# Logger
+logger = logging.getLogger(__name__)
 
 
 class ThreatIntelligenceClient:
@@ -233,20 +245,40 @@ class HistoricalAnalyzer:
 class AlertEnricher:
     """
     Main class for enriching security alerts with additional context.
-    Combines threat intelligence, geolocation, and historical analysis.
+    Combines threat intelligence, geolocation, historical analysis, and RAG indexing.
     """
 
-    def __init__(self):
+    def __init__(self, enable_rag_indexing: bool = True):
         self.threat_intel = ThreatIntelligenceClient()
         self.geoip = GeoIPClient()
         self.history = HistoricalAnalyzer()
 
-    def enrich(self, alert: Dict[str, Any]) -> Dict[str, Any]:
+        # RAG indexing
+        self.enable_rag_indexing = enable_rag_indexing and RAG_AVAILABLE
+        self._vector_store = None
+        self._embedding_service = None
+
+        if self.enable_rag_indexing:
+            try:
+                self._embedding_service = get_embedding_service()
+                self._vector_store = get_vector_store(
+                    embedding_dimension=self._embedding_service.dimension
+                )
+                logger.info("RAG indexing enabled for alert enrichment")
+            except Exception as e:
+                logger.warning(f"Failed to initialize RAG indexing: {e}")
+                self.enable_rag_indexing = False
+
+    def enrich(
+        self, alert: Dict[str, Any], index_for_rag: bool = None
+    ) -> Dict[str, Any]:
         """
-        Enrich an alert with additional context.
+        Enrich an alert with additional context and optionally index for RAG.
 
         Args:
             alert: The raw Wazuh alert
+            index_for_rag: Whether to index this alert for future RAG retrieval
+                          (default: True if RAG is enabled and alert meets criteria)
 
         Returns:
             Enriched context dictionary
@@ -288,7 +320,91 @@ class AlertEnricher:
         # Attack Classification
         context["attack_classification"] = self._classify_attack(alert, context)
 
+        # Index for RAG if enabled
+        should_index = (
+            index_for_rag if index_for_rag is not None else self.enable_rag_indexing
+        )
+        if should_index and self._should_index_alert(alert):
+            rag_result = self._index_alert_for_rag(alert)
+            context["rag_indexed"] = rag_result
+            if rag_result:
+                context["enrichment_sources"].append("rag_indexed")
+
         return context
+
+    def _should_index_alert(self, alert: Dict[str, Any]) -> bool:
+        """
+        Determine if an alert should be indexed for RAG based on criteria.
+
+        Args:
+            alert: The Wazuh alert
+
+        Returns:
+            True if alert should be indexed
+        """
+        # Minimum severity threshold
+        severity = alert.get("rule", {}).get("level", 0)
+        if severity < 5:  # Only index alerts with level >= 5
+            return False
+
+        # Check if OpenSearch is connected
+        if not self._vector_store or not self._vector_store.is_connected():
+            return False
+
+        return True
+
+    def _index_alert_for_rag(self, alert: Dict[str, Any]) -> bool:
+        """
+        Index an alert for RAG retrieval.
+
+        Args:
+            alert: The Wazuh alert to index
+
+        Returns:
+            True if indexed successfully
+        """
+        if not self._vector_store or not self._embedding_service:
+            return False
+
+        try:
+            # Generate embedding
+            embedding = self._embedding_service.embed_alert(alert)
+
+            # Index in vector store
+            success = self._vector_store.index_alert(alert, embedding)
+
+            if success:
+                logger.debug(f"Indexed alert {alert.get('id')} for RAG")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Failed to index alert for RAG: {e}")
+            return False
+
+    def get_rag_status(self) -> Dict[str, Any]:
+        """
+        Get the current RAG indexing status.
+
+        Returns:
+            Dictionary with RAG status information
+        """
+        status = {
+            "rag_available": RAG_AVAILABLE,
+            "rag_enabled": self.enable_rag_indexing,
+            "vector_store_connected": False,
+        }
+
+        if self._vector_store:
+            status["vector_store_connected"] = self._vector_store.is_connected()
+            if status["vector_store_connected"]:
+                try:
+                    stats = self._vector_store.get_stats()
+                    status["vector_store_stats"] = stats
+                except Exception as e:
+                    status["vector_store_error"] = str(e)
+
+        return status
 
     def _calculate_risk_score(
         self, alert: Dict[str, Any], context: Dict[str, Any]
