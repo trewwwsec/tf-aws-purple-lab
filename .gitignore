@@ -44,3 +44,12 @@ terraform.rc
 
 # deployment data
 deployments-outputs*
+# Python
+__pycache__/
+*.pyc
+
+# Terraform plan files
+tfplan
+
+# AI analyst runtime data
+ai-analyst/baselines/*.json
