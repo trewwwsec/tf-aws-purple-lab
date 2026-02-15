@@ -9,6 +9,21 @@ The AI Alert Analyst is an intelligent security assistant that enhances Wazuh al
 - **Actionable Next Steps** - Recommendations aligned with IR playbooks
 - **Severity Assessment** - AI-assisted priority determination
 
+### 🧠 Anomaly Detection Agent
+
+The **AI Anomaly Detector** is a proactive companion to the alert analyst that catches threats signature-based rules miss:
+
+- **Behavioral Baselines** - Builds per-agent/user norms from historical events
+- **Statistical Deviation Detection** - Flags activity that deviates from baselines using z-scores
+- **AI-Powered Reasoning** - LLM analyzes flagged anomalies for true/false positive assessment
+- **MITRE ATT&CK Mapping** - Maps behavioral anomalies to known attack techniques
+
+| | Alert Analyst | Anomaly Detector |
+|---|---|---|
+| **Trigger** | Reactive — after a rule fires | Proactive — scheduled scans |
+| **Input** | Single alert | Batch of events |
+| **Detection** | Enriches known signatures | Finds novel behaviors |
+
 ## 🎯 Features
 
 ### Alert Enrichment
@@ -23,6 +38,14 @@ The AI Alert Analyst is an intelligent security assistant that enhances Wazuh al
 - Recommends specific investigation steps
 - Suggests containment actions
 - Links to relevant playbooks
+
+### Anomaly Detection Categories
+- **Login Anomalies** — Unusual hours, impossible travel, new source IPs
+- **Process Anomalies** — New/unknown processes on monitored hosts
+- **Privilege Anomalies** — Unusual sudo usage, new privileged commands
+- **Network Anomalies** — Traffic from unknown IPs, volume spikes
+- **File Integrity Anomalies** — Sudden bursts of file changes
+- **Volume Anomalies** — Event rate spikes indicating active attacks
 
 ### Integration
 - Real-time alert processing
@@ -48,7 +71,7 @@ export ANTHROPIC_API_KEY="your-key"
 # OR use local Ollama (no API key needed)
 ```
 
-### Basic Usage
+### Alert Analysis
 
 ```bash
 # Analyze a single alert
@@ -64,7 +87,26 @@ python src/analyze_alert.py --monitor
 python src/analyze_alert.py --alert-id 100001 --report
 ```
 
-### Example Output
+### Anomaly Detection
+
+```bash
+# Run with mock data (no live Wazuh needed)
+python src/detect_anomalies.py --demo
+
+# Analyze last 24 hours from live Wazuh
+python src/detect_anomalies.py --hours 24
+
+# Continuous monitoring (scans every 5 minutes)
+python src/detect_anomalies.py --monitor --interval 300
+
+# Output as JSON for pipeline integration
+python src/detect_anomalies.py --demo --format json
+
+# Adjust sensitivity (lower threshold = more alerts)
+python src/detect_anomalies.py --demo --threshold 2.0
+```
+
+### Example Alert Analysis Output
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
@@ -112,24 +154,27 @@ python src/analyze_alert.py --alert-id 100001 --report
 
 ```
 ai-analyst/
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
+├── README.md                    # This file
+├── requirements.txt             # Python dependencies
 ├── config/
-│   ├── settings.yaml         # Configuration settings
-│   └── playbook_mapping.yaml # Alert to playbook mapping
+│   ├── settings.yaml            # Configuration settings
+│   └── playbook_mapping.yaml    # Alert to playbook mapping
 ├── prompts/
-│   ├── analyze_alert.txt     # Main analysis prompt
-│   ├── summarize.txt         # Summary generation prompt
-│   └── recommend.txt         # Action recommendation prompt
+│   ├── analyze_alert.txt        # Alert analysis prompt
+│   └── anomaly_analysis.txt     # Anomaly detection prompt
 ├── src/
-│   ├── analyze_alert.py      # Main CLI tool
-│   ├── alert_enricher.py     # Context gathering
-│   ├── ai_client.py          # LLM integration
-│   ├── wazuh_client.py       # Wazuh API client
-│   └── threat_intel.py       # Threat intelligence lookups
+│   ├── analyze_alert.py         # Alert analyst CLI
+│   ├── detect_anomalies.py      # Anomaly detector CLI
+│   ├── anomaly_detector.py      # Anomaly detection engine
+│   ├── baseline_engine.py       # Behavioral baseline builder
+│   ├── alert_enricher.py        # Context gathering
+│   ├── ai_client.py             # LLM integration
+│   ├── wazuh_client.py          # Wazuh API client
+│   └── threat_intel.py          # Threat intelligence lookups
+├── baselines/                   # Persisted agent baselines (auto-created)
 └── examples/
-    ├── sample_alert.json     # Example alert for testing
-    └── sample_output.md      # Example analysis output
+    ├── sample_alert.json        # Example alert for testing
+    └── sample_output.md         # Example analysis output
 ```
 
 ## ⚙️ Configuration
@@ -157,6 +202,12 @@ enrichment:
   enable_historical: true
   historical_hours: 24
 
+# Anomaly Detection
+anomaly_detection:
+  z_score_threshold: 2.5
+  baseline_file: "baselines/agent_baselines.json"
+  scan_interval_seconds: 300
+
 # Output Settings
 output:
   format: "terminal"  # terminal, json, markdown
@@ -166,24 +217,15 @@ output:
 
 ## 🧠 How It Works
 
-### 1. Alert Ingestion
+### Alert Analyst Pipeline
 ```
-Wazuh Alert → Parse JSON → Extract Key Fields
-```
-
-### 2. Context Gathering
-```
-Alert → Query Related Events → Threat Intel Lookup → Historical Analysis
+Wazuh Alert → Parse → Enrich Context → AI Analysis → Recommendations → Output
 ```
 
-### 3. AI Analysis
+### Anomaly Detection Pipeline
 ```
-Context → LLM Prompt → Structured Analysis → Recommendations
-```
-
-### 4. Output Generation
-```
-Analysis → Format Output → Link Playbooks → Display/Store
+Events → Aggregate Features → Compare to Baselines → Flag Deviations
+    → AI Reasoning → Findings Report
 ```
 
 ## 🔌 API Integration
@@ -237,10 +279,11 @@ Add to Wazuh's active response to auto-analyze alerts:
 - "Developed AI-powered security alert analysis using LLMs"
 - "Automated alert triage reducing analyst workload by 50%"
 - "Integrated threat intelligence with AI summarization"
-- "Created context-aware incident response recommendations"
+- "Built behavioral anomaly detection engine with statistical baselines"
+- "Created proactive threat hunting agent using z-score deviation analysis"
 
 **Example resume bullet:**
-> *"Engineered AI-powered alert analysis system using GPT-4/Claude that automatically enriches security alerts with threat context, generates actionable summaries, and provides NIST-aligned response recommendations, reducing mean time to triage by 60%."*
+> *"Engineered AI-powered security analysis platform using GPT-4/Claude that enriches alerts with threat context, detects behavioral anomalies via statistical baselines, and provides MITRE ATT&CK-mapped findings with actionable response recommendations."*
 
 ## 📚 References
 
@@ -251,6 +294,6 @@ Add to Wazuh's active response to auto-analyze alerts:
 
 ---
 
-**Last Updated**: 2026-01-28  
-**Version**: 1.0  
+**Last Updated**: 2026-02-13  
+**Version**: 2.0  
 **Status**: Production-Ready

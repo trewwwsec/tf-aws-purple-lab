@@ -43,6 +43,7 @@ This project demonstrates the design and implementation of a **complete Cloud Se
 - **82 Custom Rules** - 100% MITRE mapped (50 Linux/Windows + 32 macOS)
 - **Multi-Platform Support**: Windows, Linux, and macOS detection
 - **AI-Powered Alert Analysis** with LLM integration for intelligent triage
+- **Behavioral Anomaly Detection** using statistical baselines and AI reasoning
 - **Automated Attack Simulations** based on Atomic Red Team
 - **Complete Incident Response Playbooks** following NIST SP 800-61r2
 - **Infrastructure as Code** with Terraform for reproducible deployments
@@ -363,14 +364,18 @@ tf-aws-soc/
 │   ├── README.md                    # Feature documentation
 │   ├── requirements.txt             # Python dependencies
 │   ├── src/
-│   │   ├── analyze_alert.py         # Main CLI tool
+│   │   ├── analyze_alert.py         # Alert analyst CLI
+│   │   ├── detect_anomalies.py      # Anomaly detector CLI
+│   │   ├── anomaly_detector.py      # Detection engine
+│   │   ├── baseline_engine.py       # Behavioral baselines
 │   │   ├── ai_client.py             # LLM integration
 │   │   ├── alert_enricher.py        # Context gathering
 │   │   └── wazuh_client.py          # Wazuh API client
 │   ├── config/
 │   │   └── settings.yaml            # Configuration
 │   └── prompts/
-│       └── analyze_alert.txt        # AI prompt templates
+│       ├── analyze_alert.txt        # Alert analysis prompt
+│       └── anomaly_analysis.txt     # Anomaly detection prompt
 │
 └── README.md                        # This file
 ```
@@ -604,6 +609,20 @@ python src/analyze_alert.py --demo
 | **OpenAI** | GPT-4, GPT-3.5 | `OPENAI_API_KEY` |
 | **Anthropic** | Claude 3 | `ANTHROPIC_API_KEY` |
 | **Ollama** | Llama 2, Mistral | Local (no key needed) |
+
+### Anomaly Detection
+
+The anomaly detector proactively identifies threats that rules miss:
+
+```bash
+# Run demo (no live Wazuh needed)
+python src/detect_anomalies.py --demo
+
+# Continuous monitoring
+python src/detect_anomalies.py --monitor --interval 300
+```
+
+Detection categories: login anomalies, new processes, privilege escalation spikes, unknown source IPs, file integrity change bursts, and event volume anomalies.
 
 📚 **[View AI Analyst Documentation →](ai-analyst/)**
 
