@@ -12,6 +12,9 @@ anthropic>=0.8.0
 # Optional: Local LLM support
 # ollama (no pip package, install separately)
 
+# Anomaly detection
+numpy>=1.24.0
+
 # Optional: Enhanced features
 python-dateutil>=2.8.0
 rich>=13.0.0  # Better terminal formatting

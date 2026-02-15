@@ -97,3 +97,33 @@ api:
   enable_cors: true
   require_auth: false
   # auth_token: "set-via-env-var"
+
+# Anomaly Detection Settings
+anomaly_detection:
+  enabled: true
+
+  # How often to scan in monitor mode (seconds)
+  scan_interval_seconds: 300
+
+  # How far back to look for events
+  lookback_hours: 24
+
+  # Baseline persistence file
+  baseline_file: "baselines/agent_baselines.json"
+
+  # Z-score threshold for flagging deviations
+  # Lower = more sensitive (more alerts), Higher = less sensitive
+  z_score_threshold: 2.5
+
+  # Minimum AI confidence score to include a finding
+  min_confidence: 0.6
+
+  # Detection categories to enable
+  categories:
+    login_anomalies: true
+    process_anomalies: true
+    network_anomalies: true
+    privilege_anomalies: true
+    file_integrity_anomalies: true
+    volume_anomalies: true
+
