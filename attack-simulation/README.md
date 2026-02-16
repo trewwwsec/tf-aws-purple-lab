@@ -1,8 +1,8 @@
 # Attack Simulation Framework
 
-## 🎯 Overview
+## Overview
 
-This directory contains **safe, controlled attack simulation scripts** based on the Atomic Red Team framework. These scripts are designed to test and validate the detection rules in your Cloud SOC Platform.
+Safe, controlled attack simulation scripts for validating the Cloud SOC Platform's 2,226+ detection rules. Includes individual technique scripts, cross-platform macOS tests, and a full APT29 kill chain orchestrator.
 
 ⚠️ **WARNING**: These scripts simulate real attack techniques. **ONLY** run them in your isolated lab environment. **NEVER** run on production systems or systems you don't own.
 
@@ -10,17 +10,16 @@ This directory contains **safe, controlled attack simulation scripts** based on 
 
 ### MITRE ATT&CK Techniques Simulated
 
-| Technique | Name | Scripts | Detections Tested |
-|-----------|------|---------|-------------------|
-| **T1110** | Brute Force | `ssh-brute-force.sh` | Rules 100001, 100002 |
-| **T1059.001** | PowerShell | `powershell-attacks.ps1` | Rules 100010-100014 |
-| **T1548.003** | Sudo Abuse | `privilege-escalation.sh` | Rules 100020-100022 |
-| **T1136.001** | Create Account | `account-manipulation.sh` | Rules 100030-100033 |
-| **T1053** | Scheduled Task/Job | `persistence.sh`, `persistence.ps1` | Rules 100060-100063 |
-| **T1003** | Credential Dumping | `credential-access.sh` | Rules 100070-100072 |
-| **T1222** | File Permissions | `file-integrity.sh` | Rules 100050-100053 |
-| **T1071** | C2 Communication | `network-activity.sh` | Rules 100040-100041 |
-| **T1562** | Disable Security Tools | `defense-evasion.sh` | Rules 100080-100082 |
+| Technique | Name | Scripts | Detection Rules |
+|-----------|------|---------|----------------|
+| T1110 | Brute Force | `ssh-brute-force.sh` | 200001–200003 |
+| T1059.001 | PowerShell | `powershell-attacks.ps1` | 200010–200014 |
+| T1548.003 | Sudo Abuse | `privilege-escalation.sh` | 200020–200022 |
+| T1003 | Credential Dumping | `apt-credential-harvest.sh` | 200070–200072 |
+| T1021 | Lateral Movement | `apt-lateral-movement.sh` | 200090–200094 |
+| T1041/T1048 | C2 & Exfiltration | `apt-c2-exfil.sh` | 200050–200054 |
+| T1059.004 | macOS Shell | `macos-attacks.sh` | 200200–200206 |
+| **Full Chain** | APT29 Kill Chain | `apt-full-killchain.sh` | All of the above |
 
 ## 🚀 Quick Start
 
@@ -61,29 +60,29 @@ cd tf-aws-soc/attack-simulation
 .\run-all-windows.ps1
 ```
 
-## 📊 Simulation Scripts
+## Scripts
 
-### Linux Scripts
-- `ssh-brute-force.sh` - SSH brute force attack simulation
-- `privilege-escalation.sh` - Sudo abuse and privilege escalation
-- `account-manipulation.sh` - User creation and group modifications
-- `persistence.sh` - Cron jobs and systemd services
-- `credential-access.sh` - Shadow file access, credential dumping
-- `file-integrity.sh` - Critical file modifications
-- `network-activity.sh` - Suspicious network tools, reverse shells
-- `defense-evasion.sh` - Firewall manipulation, log clearing
-- `run-all-linux.sh` - Execute all Linux simulations
+### Individual Technique Scripts
+| Script | Platform | Techniques |
+|--------|----------|------------|
+| `ssh-brute-force.sh` | Linux | T1110 Brute Force |
+| `privilege-escalation.sh` | Linux | T1548.003 Sudo Abuse |
+| `powershell-attacks.ps1` | Windows | T1059.001 PowerShell |
+| `macos-attacks.sh` | macOS | T1059.004, T1547.011, T1555.001 |
 
-### Windows Scripts
-- `powershell-attacks.ps1` - PowerShell abuse techniques
-- `persistence.ps1` - Scheduled tasks and services
-- `credential-access.ps1` - LSASS access, SAM dumping
-- `defense-evasion.ps1` - Defender disable, log clearing
-- `run-all-windows.ps1` - Execute all Windows simulations
+### APT29 Kill Chain Suite
+| Script | Phase | Description |
+|--------|-------|-------------|
+| `apt-credential-harvest.sh` | Credential Access | Shadow/passwd dumping, key theft |
+| `apt-lateral-movement.sh` | Lateral Movement | SSH pivoting, remote execution |
+| `apt-c2-exfil.sh` | C2 & Exfiltration | Beaconing, data staging, DNS exfil |
+| `apt-full-killchain.sh` | **Full Chain** | Orchestrates all phases across victims |
 
-### Orchestration Scripts
-- `orchestrate-attack.sh` - Multi-stage attack simulation
-- `validate-detections.sh` - Automated validation of all detections
+### Support
+| Script | Purpose |
+|--------|--------|
+| `common.sh` | Shared utilities (colors, logging, cleanup) |
+| `run-all-linux.sh` | Execute all Linux simulations |
 
 ## 🧪 Testing Workflow
 
@@ -103,13 +102,13 @@ tail -f /var/ossec/logs/alerts/alerts.log | grep "Rule: 100"
 ```bash
 # Check for expected alerts in Wazuh dashboard
 # Or via command line on Wazuh server
-sudo grep "100001" /var/ossec/logs/alerts/alerts.log
+sudo grep "200001" /var/ossec/logs/alerts/alerts.log
 ```
 
 ### 4. Document Results
 ```bash
 # Record in test results
-echo "Test: SSH Brute Force | Status: PASS | Alert: 100001" >> test-results.txt
+echo "Test: SSH Brute Force | Status: PASS | Alert: 200001" >> test-results.txt
 ```
 
 ## 📈 Expected Results
@@ -117,13 +116,12 @@ echo "Test: SSH Brute Force | Status: PASS | Alert: 100001" >> test-results.txt
 ### Alert Generation Timeline
 | Simulation | Expected Alert | Time to Alert | Severity |
 |------------|----------------|---------------|----------|
-| SSH Brute Force | 100001 | < 2 minutes | High |
-| PowerShell Encoded | 100010 | < 10 seconds | High |
-| Sudo Abuse | 100021 | < 10 seconds | High |
-| User Creation | 100030 | < 30 seconds | High |
-| Cron Persistence | 100060 | < 30 seconds | High |
-| Shadow Access | 100070 | < 10 seconds | Critical |
-| Mimikatz | 100013 | < 10 seconds | Critical |
+| SSH Brute Force | 200001 | < 2 minutes | High |
+| PowerShell Encoded | 200010 | < 10 seconds | High |
+| Sudo Abuse | 200021 | < 10 seconds | High |
+| Shadow File Access | 200070 | < 10 seconds | Critical |
+| Lateral Movement | 200090 | < 10 seconds | Medium |
+| APT Full Kill Chain | Multiple | < 5 minutes | Critical |
 
 ## 🔒 Safety Measures
 
@@ -209,11 +207,11 @@ By running these simulations, you will:
 3. Sudo Abuse - FAIL ❌ (No alert generated)
 
 ## Issues Found
-- Rule 100021 not triggering for sudo bash
+- Rule 200021 not triggering for sudo bash
 - Need to adjust regex pattern
 
 ## Recommendations
-- Update rule 100021 regex
+- Update rule 200021 regex
 - Add additional test cases
 - Increase logging verbosity
 ```
@@ -251,20 +249,8 @@ By running these simulations, you will:
 5. Have rollback procedures ready
 6. Monitor for unintended impacts
 
-## 🎯 Resume Impact
-
-**What to highlight:**
-- "Conducted purple team exercises using Atomic Red Team framework"
-- "Validated 30+ detection rules through simulated attack scenarios"
-- "Achieved 95%+ detection rate across MITRE ATT&CK techniques"
-- "Documented incident response procedures for each attack technique"
-
-**Example resume bullet:**
-> *"Executed purple team exercises using Atomic Red Team framework to validate 30+ SIEM detection rules, achieving 95%+ detection rate across 9 MITRE ATT&CK technique categories and documenting comprehensive incident response procedures for each attack scenario."*
-
 ---
 
-**Last Updated**: 2026-01-28  
-**Version**: 1.0  
-**Status**: Ready for Testing  
-**Maintainer**: Cloud SOC Platform Team
+**Last Updated**: 2026-02-15
+**Version**: 2.0
+**Status**: Production-Ready

@@ -145,11 +145,11 @@ cd attack-simulation
 
 | Test | Rule ID | Description |
 |------|---------|-------------|
-| Launch Agent | 100200 | Persistence mechanism |
-| osascript | 100210 | AppleScript execution |
-| Keychain | 100220 | Credential access |
-| Gatekeeper | 100230 | Defense evasion |
-| Screen capture | 100250 | Collection technique |
+| Launch Agent | 200200 | Persistence mechanism |
+| osascript | 200210 | AppleScript execution |
+| Keychain | 200220 | Credential access |
+| Gatekeeper | 200230 | Defense evasion |
+| Screen capture | 200250 | Collection technique |
 
 ---
 

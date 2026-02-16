@@ -17,9 +17,9 @@
 An SSH brute force attack occurs when an attacker attempts to gain unauthorized access to a system by systematically trying multiple username/password combinations against the SSH service.
 
 ### Detection Rules
-- **Rule 100001**: SSH brute force attack detected (5+ failures in 2 minutes)
-- **Rule 100002**: Successful login after multiple failures (CRITICAL)
-- **Rule 100003**: Off-hours SSH login (2 AM - 6 AM)
+- **Rule 200001**: SSH brute force attack detected (5+ failures in 2 minutes)
+- **Rule 200002**: Successful login after multiple failures (CRITICAL)
+- **Rule 200003**: Off-hours SSH login (2 AM - 6 AM)
 
 ### Indicators of Compromise (IOCs)
 - Multiple failed SSH authentication attempts from single IP
@@ -36,7 +36,7 @@ An SSH brute force attack occurs when an attacker attempts to gain unauthorized 
 
 **Answer these questions immediately:**
 
-1. ☐ Was the brute force attack successful? (Check for Rule 100002)
+1. ☐ Was the brute force attack successful? (Check for Rule 200002)
 2. ☐ What is the source IP address?
 3. ☐ What username(s) were targeted?
 4. ☐ Is this a production system or test system?
@@ -47,7 +47,7 @@ An SSH brute force attack occurs when an attacker attempts to gain unauthorized 
 
 ```bash
 # On Wazuh server - Get alert details
-sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep "100001\|100002\|100003"
+sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep "200001\|200002\|200003"
 
 # Identify source IP
 sudo grep "sshd" /var/ossec/logs/alerts/alerts.log | grep -oP '\d+\.\d+\.\d+\.\d+' | sort | uniq -c | sort -rn | head -5
@@ -57,7 +57,7 @@ sudo grep "sshd" /var/ossec/logs/alerts/alerts.log | grep -oP '\d+\.\d+\.\d+\.\d
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
-| Successful login (Rule 100002) | **CRITICAL (P1)** | Escalate immediately, isolate system |
+| Successful login (Rule 200002) | **CRITICAL (P1)** | Escalate immediately, isolate system |
 | Failed attempts only, production system | **HIGH (P2)** | Continue with playbook |
 | Failed attempts only, test system | **MEDIUM (P3)** | Block IP, monitor |
 | Single failed attempt | **LOW (P4)** | Log and monitor |
@@ -65,7 +65,7 @@ sudo grep "sshd" /var/ossec/logs/alerts/alerts.log | grep -oP '\d+\.\d+\.\d+\.\d
 ### Escalation Criteria
 
 **Escalate to Tier 2 if:**
-- ✅ Rule 100002 triggered (successful login after failures)
+- ✅ Rule 200002 triggered (successful login after failures)
 - ✅ Attack targeting production systems
 - ✅ Multiple systems affected
 - ✅ Attack from known threat actor IP
@@ -90,7 +90,7 @@ mkdir -p /tmp/evidence/$INCIDENT_ID
 cd /tmp/evidence/$INCIDENT_ID
 
 # Collect Wazuh alerts
-sudo grep "100001\|100002\|100003" /var/ossec/logs/alerts/alerts.log > wazuh-alerts.log
+sudo grep "200001\|200002\|200003" /var/ossec/logs/alerts/alerts.log > wazuh-alerts.log
 
 # Extract source IPs
 grep -oP '\d+\.\d+\.\d+\.\d+' wazuh-alerts.log | sort | uniq > source-ips.txt
@@ -464,7 +464,7 @@ login attempts over [DURATION]. The attack [WAS/WAS NOT] successful.
 [IF SUCCESSFUL: The system was isolated and compromised accounts were disabled.]
 
 ## Timeline
-- **14:32:15** - Initial detection (Rule 100001 triggered)
+- **14:32:15** - Initial detection (Rule 200001 triggered)
 - **14:33:00** - Analyst acknowledged alert
 - **14:35:00** - Investigation began
 - **14:40:00** - Attacker IP blocked

@@ -17,10 +17,10 @@
 Privilege escalation occurs when an attacker gains elevated access to resources that are typically protected from an application or user. This playbook covers both Linux and Windows privilege escalation techniques.
 
 ### Detection Rules
-- **Rule 100020**: Sudo authentication failure (MEDIUM)
-- **Rule 100021**: Suspicious sudo command - shell escalation (HIGH)
-- **Rule 100022**: Sudo configuration modified (CRITICAL)
-- **Rule 100032**: User added to privileged group (HIGH)
+- **Rule 200020**: Sudo authentication failure (MEDIUM)
+- **Rule 200021**: Suspicious sudo command - shell escalation (HIGH)
+- **Rule 200022**: Sudo configuration modified (CRITICAL)
+- **Rule 200032**: User added to privileged group (HIGH)
 
 ### Attack Techniques
 

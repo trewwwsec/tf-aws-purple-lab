@@ -17,11 +17,11 @@
 PowerShell abuse involves adversaries using PowerShell commands and scripts for execution of malicious code. Attackers leverage PowerShell's powerful capabilities for downloading payloads, executing encoded commands, and living-off-the-land techniques.
 
 ### Detection Rules
-- **Rule 100010**: PowerShell encoded command detected (HIGH)
-- **Rule 100011**: PowerShell download cradle detected (HIGH)
-- **Rule 100012**: PowerShell execution policy bypass (MEDIUM)
-- **Rule 100013**: Mimikatz detected in PowerShell (CRITICAL)
-- **Rule 100014**: PowerShell Invoke-Expression detected (MEDIUM)
+- **Rule 200010**: PowerShell encoded command detected (HIGH)
+- **Rule 200011**: PowerShell download cradle detected (HIGH)
+- **Rule 200012**: PowerShell execution policy bypass (MEDIUM)
+- **Rule 200013**: Mimikatz detected in PowerShell (CRITICAL)
+- **Rule 200014**: PowerShell Invoke-Expression detected (MEDIUM)
 
 ### Attack Techniques
 | Technique | Description | Severity |

@@ -18,24 +18,20 @@ These playbooks enable:
 ### Critical Incidents (Immediate Response Required)
 | Playbook | MITRE Technique | Detection Rules | MTTR Target |
 |----------|----------------|-----------------|-------------|
-| [Credential Dumping](playbooks/credential-dumping.md) | T1003 | 100070, 100071, 100072, 100013 | 15 min |
-| [Ransomware](playbooks/ransomware.md) | T1486 | Multiple | 10 min |
-| [Data Exfiltration](playbooks/data-exfiltration.md) | T1041 | TBD | 20 min |
+| [Credential Dumping](playbooks/credential-dumping.md) | T1003 | 200070–200072, 200013 | 15 min |
 
 ### High Priority Incidents
 | Playbook | MITRE Technique | Detection Rules | MTTR Target |
 |----------|----------------|-----------------|-------------|
-| [SSH Brute Force](playbooks/ssh-brute-force.md) | T1110 | 100001, 100002, 100003 | 30 min |
-| [PowerShell Abuse](playbooks/powershell-abuse.md) | T1059.001 | 100010-100014 | 30 min |
-| [Privilege Escalation](playbooks/privilege-escalation.md) | T1548.003 | 100020-100022, 100032-100033 | 45 min |
-| [Unauthorized Account Creation](playbooks/account-creation.md) | T1136.001 | 100030-100033 | 30 min |
+| [SSH Brute Force](playbooks/ssh-brute-force.md) | T1110 | 200001–200003 | 30 min |
+| [PowerShell Abuse](playbooks/powershell-abuse.md) | T1059.001 | 200010–200014 | 30 min |
+| [Privilege Escalation](playbooks/privilege-escalation.md) | T1548.003 | 200020–200022 | 45 min |
 
 ### Medium Priority Incidents
 | Playbook | MITRE Technique | Detection Rules | MTTR Target |
 |----------|----------------|-----------------|-------------|
-| [Persistence Mechanisms](playbooks/persistence.md) | T1053, T1543 | 100060-100063 | 1 hour |
-| [File Integrity Violations](playbooks/file-integrity.md) | T1222, T1070 | 100050-100053 | 1 hour |
-| [Defense Evasion](playbooks/defense-evasion.md) | T1562 | 100080-100082 | 45 min |
+| [Persistence Mechanisms](playbooks/persistence.md) | T1053, T1543 | 200060–200063 | 1 hour |
+| [macOS Compromise](playbooks/macos-compromise.md) | T1059.004, T1547.011 | 200200–200206 | 1 hour |
 
 ## 🔄 Incident Response Lifecycle
 
@@ -280,49 +276,8 @@ tar -czf evidence-$(date +%Y%m%d-%H%M%S).tar.gz \
 4. Update playbooks
 5. Train team on changes
 
-## 🎯 Resume Impact
-
-**What to highlight:**
-- "Developed 10+ incident response playbooks covering MITRE ATT&CK techniques"
-- "Documented complete IR lifecycle from detection to post-incident analysis"
-- "Achieved MTTR of < 1 hour for high-severity incidents"
-- "Created standardized procedures reducing response time by 40%"
-
-**Example resume bullet:**
-> *"Authored 10+ incident response playbooks aligned with NIST framework, covering credential dumping, brute force attacks, and privilege escalation, achieving mean time to resolution (MTTR) of < 1 hour for high-severity incidents and 100% documentation compliance."*
-
-## 📚 References
-
-### Frameworks & Standards
-- [NIST SP 800-61r2: Computer Security Incident Handling Guide](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r2.pdf)
-- [SANS Incident Handler's Handbook](https://www.sans.org/white-papers/33901/)
-- [MITRE ATT&CK Framework](https://attack.mitre.org/)
-
-### Industry Resources
-- [Incident Response Consortium](https://www.incidentresponse.com/)
-- [FIRST (Forum of Incident Response and Security Teams)](https://www.first.org/)
-- [CISA Incident Response Resources](https://www.cisa.gov/incident-response)
-
-## 🚀 Quick Start
-
-### For Analysts
-1. Familiarize yourself with all playbooks
-2. Bookmark this README for quick reference
-3. Review escalation matrix
-4. Practice with simulated incidents
-5. Keep communication templates handy
-
-### During an Incident
-1. **Acknowledge** alert in Wazuh dashboard
-2. **Identify** appropriate playbook
-3. **Follow** playbook procedures step-by-step
-4. **Document** all actions taken
-5. **Escalate** if needed per severity matrix
-6. **Complete** post-incident documentation
-
 ---
 
-**Last Updated**: 2026-01-28  
-**Version**: 1.0  
-**Status**: Production-Ready  
-**Maintainer**: Cloud SOC Platform Team
+**Last Updated**: 2026-02-15
+**Version**: 2.0
+**Status**: Production-Ready

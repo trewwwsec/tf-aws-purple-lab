@@ -232,7 +232,7 @@ flowchart LR
 
 **Example Rule Logic**:
 ```xml
-<rule id="100001" level="10">
+<rule id="200001" level="10">
   <if_matched_sid>5551</if_matched_sid>
   <same_source_ip />
   <description>SSH brute force attack detected</description>
@@ -270,7 +270,7 @@ Translation: If 5+ SSH failures from same IP in 2 minutes → Alert
 **Example Alert**:
 ```json
 {
-  "rule_id": "100001",
+  "rule_id": "200001",
   "level": 10,
   "description": "SSH brute force attack detected",
   "agent": "wazuh-server",

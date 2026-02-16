@@ -75,7 +75,7 @@ export ANTHROPIC_API_KEY="your-key"
 
 ```bash
 # Analyze a single alert
-python src/analyze_alert.py --alert-id 100001
+python src/analyze_alert.py --alert-id 200001
 
 # Analyze recent alerts
 python src/analyze_alert.py --recent 10
@@ -84,7 +84,7 @@ python src/analyze_alert.py --recent 10
 python src/analyze_alert.py --monitor
 
 # Generate incident report
-python src/analyze_alert.py --alert-id 100001 --report
+python src/analyze_alert.py --alert-id 200001 --report
 ```
 
 ### Anomaly Detection
@@ -114,7 +114,7 @@ python src/detect_anomalies.py --demo --threshold 2.0
 ╚══════════════════════════════════════════════════════════════════╝
 
 📋 ALERT: Targeted SSH Brute Force Against Root Account
-   Rule: 100001 | Severity: HIGH | Time: 2026-01-28 14:32:15 UTC
+   Rule: 200001 | Severity: HIGH | Time: 2026-01-28 14:32:15 UTC
 
 🎯 SUMMARY:
    An automated SSH brute force attack was detected targeting the 
@@ -239,7 +239,7 @@ python src/api_server.py
 # Analyze alert via API
 curl -X POST http://localhost:8080/analyze \
   -H "Content-Type: application/json" \
-  -d '{"alert_id": "100001", "raw_alert": {...}}'
+  -d '{"alert_id": "200001", "raw_alert": {...}}'
 ```
 
 ### Wazuh Integration
@@ -264,14 +264,14 @@ Add to Wazuh's active response to auto-analyze alerts:
 
 | Alert Category | Rule IDs | Analysis Quality |
 |----------------|----------|------------------|
-| SSH Brute Force | 100001-100003 | ⭐⭐⭐⭐⭐ |
-| PowerShell Abuse | 100010-100014 | ⭐⭐⭐⭐⭐ |
-| Privilege Escalation | 100020-100022 | ⭐⭐⭐⭐ |
-| Credential Dumping | 100070-100072 | ⭐⭐⭐⭐⭐ |
-| Account Creation | 100030-100033 | ⭐⭐⭐⭐ |
-| Persistence | 100060-100063 | ⭐⭐⭐⭐ |
-| File Integrity | 100050-100053 | ⭐⭐⭐ |
-| Defense Evasion | 100080-100082 | ⭐⭐⭐⭐ |
+| SSH Brute Force | 200001-200003 | ⭐⭐⭐⭐⭐ |
+| PowerShell Abuse | 200010-200014 | ⭐⭐⭐⭐⭐ |
+| Privilege Escalation | 200020-200022 | ⭐⭐⭐⭐ |
+| Credential Dumping | 200070-200072 | ⭐⭐⭐⭐⭐ |
+| Account Creation | 200030-200033 | ⭐⭐⭐⭐ |
+| Persistence | 200060-200063 | ⭐⭐⭐⭐ |
+| File Integrity | 200050-200053 | ⭐⭐⭐ |
+| Defense Evasion | 200080-200082 | ⭐⭐⭐⭐ |
 
 ## 🎓 Resume Impact
 

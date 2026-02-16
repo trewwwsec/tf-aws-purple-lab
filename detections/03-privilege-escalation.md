@@ -12,9 +12,9 @@ Detects privilege escalation attempts on Linux and Windows systems, focusing on 
 
 ## Detection Rules
 
-### Rule 100020: Sudo Command Executed (Baseline)
+### Rule 200020: Sudo Command Executed (Baseline)
 ```xml
-<rule id="100020" level="3">
+<rule id="200020" level="3">
   <if_sid>5401</if_sid>
   <description>Sudo command executed</description>
 </rule>
@@ -24,10 +24,10 @@ Detects privilege escalation attempts on Linux and Windows systems, focusing on 
 
 **Severity**: Low (3) - Normal administrative activity
 
-### Rule 100021: Suspicious Sudo Commands
+### Rule 200021: Suspicious Sudo Commands
 ```xml
-<rule id="100021" level="10">
-  <if_sid>100020</if_sid>
+<rule id="200021" level="10">
+  <if_sid>200020</if_sid>
   <field name="command" type="pcre2">(?i)su\s+-|/bin/bash|/bin/sh|nc\s+|python|perl|ruby|php</field>
   <description>Suspicious sudo command executed (shell/scripting interpreter)</description>
 </rule>
@@ -43,10 +43,10 @@ Detects privilege escalation attempts on Linux and Windows systems, focusing on 
 
 **Severity**: High (10)
 
-### Rule 100022: Direct Root Shell Escalation
+### Rule 200022: Direct Root Shell Escalation
 ```xml
-<rule id="100022" level="12">
-  <if_sid>100020</if_sid>
+<rule id="200022" level="12">
+  <if_sid>200020</if_sid>
   <field name="command" type="pcre2">sudo\s+su\s*$|sudo\s+-i|sudo\s+bash</field>
   <description>Sudo escalation to root shell detected</description>
 </rule>
@@ -61,9 +61,9 @@ Detects privilege escalation attempts on Linux and Windows systems, focusing on 
 
 **Severity**: High (12)
 
-### Rule 100032: User Added to Privileged Group (Linux)
+### Rule 200032: User Added to Privileged Group (Linux)
 ```xml
-<rule id="100032" level="12">
+<rule id="200032" level="12">
   <decoded_as>auditd</decoded_as>
   <field name="auditd.key">identity</field>
   <field name="auditd.file" type="pcre2">/etc/group|/etc/sudoers</field>
@@ -79,9 +79,9 @@ Detects privilege escalation attempts on Linux and Windows systems, focusing on 
 
 **Severity**: High (12)
 
-### Rule 100033: User Added to Administrators (Windows)
+### Rule 200033: User Added to Administrators (Windows)
 ```xml
-<rule id="100033" level="12">
+<rule id="200033" level="12">
   <if_sid>60000</if_sid>
   <field name="win.system.eventID">4732</field>
   <field name="win.eventdata.targetUserName" type="pcre2">(?i)administrators|domain admins</field>
@@ -132,7 +132,7 @@ auditpol /set /subcategory:"Security Group Management" /success:enable /failure:
 
 ## Testing Procedures
 
-### Test 1: Suspicious Sudo Command (Rule 100021)
+### Test 1: Suspicious Sudo Command (Rule 200021)
 ```bash
 # On Linux endpoint
 # Test 1: Sudo with bash
@@ -144,10 +144,10 @@ sudo python3 -c "print('Test alert')"
 # Test 3: Sudo with netcat (if installed)
 sudo nc -h
 
-# Expected: Rule 100021 alert for each command
+# Expected: Rule 200021 alert for each command
 ```
 
-### Test 2: Root Shell Escalation (Rule 100022)
+### Test 2: Root Shell Escalation (Rule 200022)
 ```bash
 # Test direct root shell
 sudo su
@@ -157,10 +157,10 @@ sudo su
 sudo -i
 # Type 'exit' immediately
 
-# Expected: Rule 100022 alert
+# Expected: Rule 200022 alert
 ```
 
-### Test 3: Add User to Sudo Group (Rule 100032)
+### Test 3: Add User to Sudo Group (Rule 200032)
 ```bash
 # Create test user
 sudo useradd testuser
@@ -172,10 +172,10 @@ sudo usermod -aG sudo testuser
 # Clean up
 sudo userdel testuser
 
-# Expected: Rule 100032 alert
+# Expected: Rule 200032 alert
 ```
 
-### Test 4: Windows Admin Group Addition (Rule 100033)
+### Test 4: Windows Admin Group Addition (Rule 200033)
 ```powershell
 # On Windows endpoint (requires admin privileges)
 # Create test user
@@ -188,7 +188,7 @@ net localgroup Administrators testuser /add
 net localgroup Administrators testuser /delete
 net user testuser /delete
 
-# Expected: Rule 100033 alert
+# Expected: Rule 200033 alert
 ```
 
 ### Verification
@@ -220,13 +220,13 @@ sudo vim /etc/hosts
 **Scenario**: Ansible/Puppet/Chef uses sudo for automation
 ```bash
 # Ansible playbook execution
-sudo bash -c "some_command"  # WILL trigger 100021
+sudo bash -c "some_command"  # WILL trigger 200021
 ```
 
 **Tuning**: Whitelist automation user accounts
 ```xml
-<rule id="100021" level="10">
-  <if_sid>100020</if_sid>
+<rule id="200021" level="10">
+  <if_sid>200020</if_sid>
   <field name="command" type="pcre2">(?i)su\s+-|/bin/bash|/bin/sh</field>
   <field name="user" negate="yes">ansible</field>
   <description>Suspicious sudo command executed</description>
@@ -251,8 +251,8 @@ sudo usermod -aG sudo newadmin
 **Tuning**: Lower severity for dev systems
 ```xml
 <!-- Lower severity for dev environments -->
-<rule id="100021" level="5">
-  <if_sid>100020</if_sid>
+<rule id="200021" level="5">
+  <if_sid>200020</if_sid>
   <field name="command" type="pcre2">(?i)su\s+-|/bin/bash</field>
   <field name="hostname" type="pcre2">dev-|test-|staging-</field>
   <description>Suspicious sudo command on dev system (informational)</description>
@@ -263,7 +263,7 @@ sudo usermod -aG sudo newadmin
 
 ### Tier 1 Analyst Actions
 
-#### For Rules 100021-100022 (Suspicious Sudo)
+#### For Rules 200021-200022 (Suspicious Sudo)
 1. **Immediate verification**
    - Who executed the command? (Check user field)
    - What was the exact command? (Review full log)
@@ -294,7 +294,7 @@ sudo usermod -aG sudo newadmin
    - If MEDIUM RISK: Contact user to verify activity
    - If LOW RISK: Document and monitor
 
-#### For Rules 100032-100033 (Group Modification)
+#### For Rules 200032-200033 (Group Modification)
 1. **IMMEDIATE ESCALATION** - This is high-priority
 2. **Verify change management**
    - Is there an approved ticket for this change?
@@ -366,7 +366,7 @@ sudo passwd ADMIN_USER
 ### Correlation Rule: Rapid Privilege Escalation
 ```xml
 <!-- Alert if user goes from normal user to sudo in < 5 minutes -->
-<rule id="100025" level="15" frequency="2" timeframe="300">
+<rule id="200025" level="15" frequency="2" timeframe="300">
   <if_matched_group>privilege_escalation</if_matched_group>
   <same_user />
   <description>Rapid privilege escalation detected (CRITICAL)</description>

@@ -190,7 +190,7 @@ wazuh = WazuhClient()
 ai = AIClient(use_rag=True)
 
 # Get an alert
-alert = wazuh.get_alert_by_id("100001")
+alert = wazuh.get_alert_by_id("200001")
 
 # Analyze with RAG context
 analysis = ai.analyze_alert(alert)

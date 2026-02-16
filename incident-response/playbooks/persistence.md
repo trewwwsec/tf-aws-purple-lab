@@ -17,12 +17,12 @@
 Persistence consists of techniques that adversaries use to maintain access to systems across restarts, changed credentials, and other interruptions. This playbook covers detection and response to various persistence mechanisms on both Linux and Windows systems.
 
 ### Detection Rules
-- **Rule 100060**: Cron job created or modified (HIGH)
-- **Rule 100061**: Systemd service created (HIGH)
-- **Rule 100062**: Windows scheduled task created (HIGH)
-- **Rule 100063**: Windows service created (HIGH)
-- **Rule 100051**: SSH authorized_keys modified (HIGH)
-- **Rule 100053**: Windows Startup folder modified (HIGH)
+- **Rule 200060**: Cron job created or modified (HIGH)
+- **Rule 200061**: Systemd service created (HIGH)
+- **Rule 200062**: Windows scheduled task created (HIGH)
+- **Rule 200063**: Windows service created (HIGH)
+- **Rule 200051**: SSH authorized_keys modified (HIGH)
+- **Rule 200053**: Windows Startup folder modified (HIGH)
 
 ### Persistence Techniques
 

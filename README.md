@@ -448,7 +448,7 @@ macOS:   ██████████████████████ 28 r
 ### Example Detection Rule
 
 ```xml
-<rule id="100001" level="10">
+<rule id="200001" level="10">
   <if_matched_sid>5551</if_matched_sid>
   <same_source_ip />
   <description>SSH brute force attack detected - 5+ failures in 2 minutes</description>
@@ -531,8 +531,8 @@ Phase 6: Cleanup     → Collect logs, remove artifacts
 | SSH Brute Force (5+ failures) | Rule 200001 | < 2 minutes |
 | Successful login after failures | Rule 200002 (CRITICAL) | < 10 seconds |
 | Lateral SSH pivoting | Rule 200094 | < 10 seconds |
-| Sudo with bash/python | Rule 100021 | < 10 seconds |
-| PowerShell encoded command | Rule 100010 | < 10 seconds |
+| Sudo with bash/python | Rule 200021 | < 10 seconds |
+| PowerShell encoded command | Rule 200010 | < 10 seconds |
 
 📚 **[View Full APT Demo Documentation →](docs/APT-SIMULATION-DEMO.md)** · **[Attack Simulation Framework →](attack-simulation/)**
 
@@ -623,7 +623,7 @@ python src/analyze_alert.py --demo
 ╚══════════════════════════════════════════════════════════════════╝
 
 📋 ALERT: Targeted SSH Brute Force Against Root Account
-   Rule: 100001 | Severity: HIGH | Time: 2026-01-28 14:32:15 UTC
+   Rule: 200001 | Severity: HIGH | Time: 2026-01-28 14:32:15 UTC
 
 🎯 SUMMARY:
    An automated SSH brute force attack was detected targeting the 

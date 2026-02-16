@@ -10,14 +10,14 @@ This document covers the macOS-specific detection rules for the Cloud SOC Platfo
 
 | Tactic | Techniques | Rules |
 |--------|------------|-------|
-| **Persistence** | T1543.001, T1543.004, T1547.015, T1053.003 | 100200-100204 |
-| **Execution** | T1059.002, T1059.004, T1059.007 | 100210-100213 |
-| **Credential Access** | T1555.001, T1555.003, T1552.004, T1539 | 100220-100224 |
-| **Defense Evasion** | T1553.001, T1518.001, T1562, T1562.001, T1562.004 | 100230-100234 |
-| **Discovery** | T1082, T1016, T1087.002, T1518 | 100240-100243 |
-| **Collection** | T1113, T1115, T1083, T1552 | 100250-100252 |
-| **Command & Control** | T1572, T1095 | 100260-100262 |
-| **Lateral Movement** | T1021.004, T1021.005 | 100270-100272 |
+| **Persistence** | T1543.001, T1543.004, T1547.015, T1053.003 | 200200-200204 |
+| **Execution** | T1059.002, T1059.004, T1059.007 | 200210-200213 |
+| **Credential Access** | T1555.001, T1555.003, T1552.004, T1539 | 200220-200224 |
+| **Defense Evasion** | T1553.001, T1518.001, T1562, T1562.001, T1562.004 | 200230-200234 |
+| **Discovery** | T1082, T1016, T1087.002, T1518 | 200240-200243 |
+| **Collection** | T1113, T1115, T1083, T1552 | 200250-200252 |
+| **Command & Control** | T1572, T1095 | 200260-200262 |
+| **Lateral Movement** | T1021.004, T1021.005 | 200270-200272 |
 
 ## 📊 Detection Rules Summary
 
@@ -40,11 +40,11 @@ This document covers the macOS-specific detection rules for the Cloud SOC Platfo
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100200 | Launch Agent created (user-level) | HIGH | T1543.001 |
-| 100201 | Launch Daemon created (system-level) | HIGH | T1543.004 |
-| 100202 | Login Items modified | HIGH | T1547.015 |
-| 100203 | Cron job created/modified | HIGH | T1053.003 |
-| 100204 | Periodic scripts modified | HIGH | T1053.003 |
+| 200200 | Launch Agent created (user-level) | HIGH | T1543.001 |
+| 200201 | Launch Daemon created (system-level) | HIGH | T1543.004 |
+| 200202 | Login Items modified | HIGH | T1547.015 |
+| 200203 | Cron job created/modified | HIGH | T1053.003 |
+| 200204 | Periodic scripts modified | HIGH | T1053.003 |
 
 **Key Paths Monitored:**
 - `~/Library/LaunchAgents/`
@@ -57,10 +57,10 @@ This document covers the macOS-specific detection rules for the Cloud SOC Platfo
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100210 | osascript (AppleScript) executed | MEDIUM | T1059.002 |
-| 100211 | osascript with JavaScript (JXA) | HIGH | T1059.007 |
-| 100212 | osascript executing shell commands | HIGH | T1059.002+004 |
-| 100213 | Download and execute pattern | HIGH | T1059.004, T1105 |
+| 200210 | osascript (AppleScript) executed | MEDIUM | T1059.002 |
+| 200211 | osascript with JavaScript (JXA) | HIGH | T1059.007 |
+| 200212 | osascript executing shell commands | HIGH | T1059.002+004 |
+| 200213 | Download and execute pattern | HIGH | T1059.004, T1105 |
 
 **Techniques Detected:**
 - AppleScript execution
@@ -72,11 +72,11 @@ This document covers the macOS-specific detection rules for the Cloud SOC Platfo
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100220 | Keychain credential extraction | HIGH | T1555.001 |
-| 100221 | Keychain database accessed | HIGH | T1555.001 |
-| 100222 | Safari credential files accessed | HIGH | T1555.003 |
-| 100223 | Chrome credential/cookie files | HIGH | T1555.003, T1539 |
-| 100224 | SSH private key accessed | HIGH | T1552.004 |
+| 200220 | Keychain credential extraction | HIGH | T1555.001 |
+| 200221 | Keychain database accessed | HIGH | T1555.001 |
+| 200222 | Safari credential files accessed | HIGH | T1555.003 |
+| 200223 | Chrome credential/cookie files | HIGH | T1555.003, T1539 |
+| 200224 | SSH private key accessed | HIGH | T1552.004 |
 
 **Protected Assets:**
 - `~/Library/Keychains/*.keychain-db`
@@ -88,11 +88,11 @@ This document covers the macOS-specific detection rules for the Cloud SOC Platfo
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100230 | Gatekeeper bypass attempt | HIGH | T1553.001 |
-| 100231 | SIP status checked | MEDIUM | T1518.001 |
-| 100232 | TCC database accessed | CRITICAL | T1562 |
-| 100233 | XProtect/MRT modification | HIGH | T1562.001 |
-| 100234 | Application Firewall disabled | HIGH | T1562.004 |
+| 200230 | Gatekeeper bypass attempt | HIGH | T1553.001 |
+| 200231 | SIP status checked | MEDIUM | T1518.001 |
+| 200232 | TCC database accessed | CRITICAL | T1562 |
+| 200233 | XProtect/MRT modification | HIGH | T1562.001 |
+| 200234 | Application Firewall disabled | HIGH | T1562.004 |
 
 **Security Mechanisms Monitored:**
 - Gatekeeper (`spctl`, quarantine attributes)
@@ -105,34 +105,34 @@ This document covers the macOS-specific detection rules for the Cloud SOC Platfo
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100240 | system_profiler executed | MEDIUM | T1082 |
-| 100241 | Network configuration discovery | MEDIUM | T1016 |
-| 100242 | Directory Services enumeration | MEDIUM | T1087.002 |
-| 100243 | Installed applications enumeration | MEDIUM | T1518 |
+| 200240 | system_profiler executed | MEDIUM | T1082 |
+| 200241 | Network configuration discovery | MEDIUM | T1016 |
+| 200242 | Directory Services enumeration | MEDIUM | T1087.002 |
+| 200243 | Installed applications enumeration | MEDIUM | T1518 |
 
 ### 6. Collection (3 rules)
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100250 | Screen capture utility | MEDIUM | T1113 |
-| 100251 | Clipboard access (pbcopy/pbpaste) | MEDIUM | T1115 |
-| 100252 | Sensitive file search (find) | HIGH | T1083, T1552 |
+| 200250 | Screen capture utility | MEDIUM | T1113 |
+| 200251 | Clipboard access (pbcopy/pbpaste) | MEDIUM | T1115 |
+| 200252 | Sensitive file search (find) | HIGH | T1083, T1552 |
 
 ### 7. Command & Control (3 rules)
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100260 | SSH tunnel created | HIGH | T1572 |
-| 100261 | Network tool (nc/socat) executed | HIGH | T1095 |
-| 100262 | Reverse shell detected | CRITICAL | T1059.004 |
+| 200260 | SSH tunnel created | HIGH | T1572 |
+| 200261 | Network tool (nc/socat) executed | HIGH | T1095 |
+| 200262 | Reverse shell detected | CRITICAL | T1059.004 |
 
 ### 8. Lateral Movement (3 rules)
 
 | Rule ID | Description | Severity | MITRE |
 |---------|-------------|----------|-------|
-| 100270 | SSH to multiple hosts | MEDIUM | T1021.004 |
-| 100271 | VNC/Screen Sharing initiated | MEDIUM | T1021.005 |
-| 100272 | Apple Remote Desktop activity | HIGH | T1021.005 |
+| 200270 | SSH to multiple hosts | MEDIUM | T1021.004 |
+| 200271 | VNC/Screen Sharing initiated | MEDIUM | T1021.005 |
+| 200272 | Apple Remote Desktop activity | HIGH | T1021.005 |
 
 ## 🚀 Deployment
 
@@ -198,14 +198,14 @@ cd attack-simulation
 
 | Test | Rule ID | Alert Description |
 |------|---------|-------------------|
-| Launch Agent creation | 100200 | macOS Launch Agent created |
-| osascript execution | 100210 | osascript executed |
-| osascript + shell | 100212 | osascript shell execution |
-| Keychain access | 100220/221 | Keychain access detected |
-| Gatekeeper check | 100230 | Gatekeeper check |
-| SIP check | 100231 | SIP status checked |
-| Screen capture | 100250 | Screen capture utility |
-| Clipboard | 100251 | Clipboard access detected |
+| Launch Agent creation | 200200 | macOS Launch Agent created |
+| osascript execution | 200210 | osascript executed |
+| osascript + shell | 200212 | osascript shell execution |
+| Keychain access | 200220/221 | Keychain access detected |
+| Gatekeeper check | 200230 | Gatekeeper check |
+| SIP check | 200231 | SIP status checked |
+| Screen capture | 200250 | Screen capture utility |
+| Clipboard | 200251 | Clipboard access detected |
 
 ## 📈 Tuning Recommendations
 
@@ -213,19 +213,19 @@ cd attack-simulation
 
 | Rule ID | Condition | Whitelist Strategy |
 |---------|-----------|-------------------|
-| 100210 | osascript | Whitelist known automation scripts |
-| 100240 | system_profiler | Whitelist IT management tools |
-| 100241 | networksetup | Whitelist MDM operations |
-| 100251 | pbcopy/pbpaste | Consider disabling in dev environments |
+| 200210 | osascript | Whitelist known automation scripts |
+| 200240 | system_profiler | Whitelist IT management tools |
+| 200241 | networksetup | Whitelist MDM operations |
+| 200251 | pbcopy/pbpaste | Consider disabling in dev environments |
 
 ### Low False Positive Risk
 
 | Rule ID | Notes |
 |---------|-------|
-| 100201 | Launch Daemons rarely created normally |
-| 100232 | TCC database access is highly suspicious |
-| 100220 | Keychain dumping is rarely legitimate |
-| 100262 | Reverse shells are never legitimate |
+| 200201 | Launch Daemons rarely created normally |
+| 200232 | TCC database access is highly suspicious |
+| 200220 | Keychain dumping is rarely legitimate |
+| 200262 | Reverse shells are never legitimate |
 
 ## 🔗 Related Resources
 

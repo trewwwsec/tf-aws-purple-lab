@@ -10,9 +10,9 @@ Detects brute force authentication attacks against SSH services by identifying p
 
 ## Detection Logic
 
-### Rule 100001: Multiple Failed Attempts
+### Rule 200001: Multiple Failed Attempts
 ```xml
-<rule id="100001" level="10" frequency="5" timeframe="120">
+<rule id="200001" level="10" frequency="5" timeframe="120">
   <if_matched_sid>5710</if_matched_sid>
   <description>SSH brute force attack detected (5+ failures in 2 minutes)</description>
 </rule>
@@ -25,9 +25,9 @@ Detects brute force authentication attacks against SSH services by identifying p
 
 **Severity**: High (10)
 
-### Rule 100002: Successful Login After Failures
+### Rule 200002: Successful Login After Failures
 ```xml
-<rule id="100002" level="12">
+<rule id="200002" level="12">
   <if_sid>5715</if_sid>
   <if_fts></if_fts>
   <description>SSH brute force - successful login after multiple failures</description>
@@ -41,9 +41,9 @@ Detects brute force authentication attacks against SSH services by identifying p
 
 **Severity**: Critical (12)
 
-### Rule 100003: Off-Hours Login
+### Rule 200003: Off-Hours Login
 ```xml
-<rule id="100003" level="8">
+<rule id="200003" level="8">
   <if_sid>5715</if_sid>
   <time>2 am - 6 am</time>
   <description>SSH login during unusual hours</description>
@@ -77,7 +77,7 @@ echo -e "password123\nadmin\nroot\ntest123" > passwords.txt
 # Run brute force attack (SAFE - controlled environment only)
 hydra -l ubuntu -P passwords.txt ssh://TARGET_IP -t 4
 
-# Expected: Rule 100001 should trigger after 5 failed attempts
+# Expected: Rule 200001 should trigger after 5 failed attempts
 ```
 
 ### Manual Testing
@@ -90,16 +90,16 @@ for i in {1..5}; do
 done
 
 # Check Wazuh alerts
-# Expected: Alert 100001 within 2 minutes
+# Expected: Alert 200001 within 2 minutes
 ```
 
 ### Verification
 ```bash
 # On Wazuh server
-tail -f /var/ossec/logs/alerts/alerts.log | grep "100001\|100002\|100003"
+tail -f /var/ossec/logs/alerts/alerts.log | grep "200001\|200002\|200003"
 
 # Or via Wazuh dashboard
-# Navigate to: Security Events > Rule ID: 100001
+# Navigate to: Security Events > Rule ID: 200001
 ```
 
 ## False Positive Scenarios
@@ -120,14 +120,14 @@ tail -f /var/ossec/logs/alerts/alerts.log | grep "100001\|100002\|100003"
 ### Tuning Recommendations
 ```xml
 <!-- Whitelist trusted admin IPs -->
-<rule id="100001" level="10" frequency="5" timeframe="120">
+<rule id="200001" level="10" frequency="5" timeframe="120">
   <if_matched_sid>5710</if_matched_sid>
   <srcip negate="yes">192.168.1.100</srcip> <!-- Admin workstation -->
   <description>SSH brute force attack detected</description>
 </rule>
 
 <!-- Increase threshold for less sensitive systems -->
-<rule id="100001" level="10" frequency="10" timeframe="300">
+<rule id="200001" level="10" frequency="10" timeframe="300">
   <!-- 10 failures in 5 minutes instead of 5 in 2 -->
 </rule>
 ```
@@ -140,7 +140,7 @@ tail -f /var/ossec/logs/alerts/alerts.log | grep "100001\|100002\|100003"
    - Review authentication logs for context
    
 2. **Determine if attack was successful**
-   - Look for Rule 100002 (successful login after failures)
+   - Look for Rule 200002 (successful login after failures)
    - If yes, escalate to Tier 2 immediately
 
 3. **Block source IP** (if confirmed malicious)
@@ -153,7 +153,7 @@ tail -f /var/ossec/logs/alerts/alerts.log | grep "100001\|100002\|100003"
    ```
 
 ### Investigation Actions (Tier 2 Analyst)
-1. **If login was successful (Rule 100002)**
+1. **If login was successful (Rule 200002)**
    - Isolate affected system
    - Review all commands executed by compromised account
    - Check for lateral movement

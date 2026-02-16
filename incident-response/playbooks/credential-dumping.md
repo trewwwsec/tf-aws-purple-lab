@@ -17,10 +17,10 @@
 Credential dumping is the process of obtaining account login and password information from the operating system and software. Attackers use this technique to steal credentials for lateral movement, privilege escalation, and persistence.
 
 ### Detection Rules
-- **Rule 100013**: Mimikatz detected (CRITICAL)
-- **Rule 100070**: Shadow password file accessed (CRITICAL)
-- **Rule 100071**: LSASS process accessed (CRITICAL)
-- **Rule 100072**: SAM/SECURITY registry hive accessed (CRITICAL)
+- **Rule 200013**: Mimikatz detected (CRITICAL)
+- **Rule 200070**: Shadow password file accessed (CRITICAL)
+- **Rule 200071**: LSASS process accessed (CRITICAL)
+- **Rule 200072**: SAM/SECURITY registry hive accessed (CRITICAL)
 
 ### Indicators of Compromise (IOCs)
 - Mimikatz execution or keywords in logs

@@ -36,18 +36,18 @@ cd tf-aws-soc/attack-simulation
 
 | Script | Platform | MITRE Technique | Detection Rules |
 |--------|----------|-----------------|-----------------|
-| `ssh-brute-force.sh` | Linux | T1110 | 100001, 100002, 100003 |
-| `privilege-escalation.sh` | Linux | T1548.003 | 100020, 100021, 100022, 100032 |
-| `powershell-attacks.ps1` | Windows | T1059.001 | 100010-100014 |
+| `ssh-brute-force.sh` | Linux | T1110 | 200001–200003 |
+| `privilege-escalation.sh` | Linux | T1548.003 | 200020–200022 |
+| `powershell-attacks.ps1` | Windows | T1059.001 | 200010–200014 |
+| `apt-full-killchain.sh` | Multi | Full APT29 | All rules |
 | `run-all-linux.sh` | Linux | Multiple | All Linux rules |
-| `run-all-windows.ps1` | Windows | Multiple | All Windows rules |
 
 ## 🎯 Testing Workflow
 
 ### 1. Pre-Test Setup
 ```bash
 # On Wazuh server - start monitoring
-tail -f /var/ossec/logs/alerts/alerts.log | grep "Rule: 100"
+tail -f /var/ossec/logs/alerts/alerts.log | grep "Rule: 200"
 ```
 
 ### 2. Run Simulation
@@ -59,24 +59,24 @@ tail -f /var/ossec/logs/alerts/alerts.log | grep "Rule: 100"
 ### 3. Verify Alerts
 ```bash
 # Check Wazuh dashboard or run on Wazuh server
-sudo grep "100020\|100021\|100022" /var/ossec/logs/alerts/alerts.log
+sudo grep "200020\|200021\|200022" /var/ossec/logs/alerts/alerts.log
 ```
 
 ### 4. Document Results
 ```bash
 # Record in test log
-echo "Test: Privilege Escalation | Status: PASS | Alerts: 100020, 100021, 100022" >> test-results.txt
+echo "Test: Privilege Escalation | Status: PASS | Alerts: 200020, 200021, 200022" >> test-results.txt
 ```
 
 ## 📊 Expected Alert Timeline
 
 | Simulation | Alert Time | Rule ID | Severity |
 |------------|------------|---------|----------|
-| Sudo abuse | < 10 sec | 100021 | High |
-| PowerShell encoded | < 10 sec | 100010 | High |
-| SSH brute force | < 2 min | 100001 | High |
-| Mimikatz | < 10 sec | 100013 | Critical |
-| User creation | < 30 sec | 100030 | High |
+| Sudo abuse | < 10 sec | 200021 | High |
+| PowerShell encoded | < 10 sec | 200010 | High |
+| SSH brute force | < 2 min | 200001 | High |
+| Mimikatz | < 10 sec | 200013 | Critical |
+| User creation | < 30 sec | 200030 | High |
 
 ## ⚠️ Safety Reminders
 
@@ -118,7 +118,7 @@ export WAZUH_SERVER="ubuntu@10.0.1.100"
 
 ### Simulation doesn't trigger alert
 1. Check Wazuh agent is running: `sudo systemctl status wazuh-agent`
-2. Verify rules are loaded: `sudo grep "rule id=\"100" /var/ossec/etc/rules/local_rules.xml`
+2. Verify rules are loaded: `sudo grep -c "rule id=\"200" /var/ossec/etc/rules/local_rules.xml`
 3. Check agent connectivity: `sudo /var/ossec/bin/agent_control -l`
 4. Review agent logs: `sudo tail -f /var/ossec/logs/ossec.log`
 
@@ -141,21 +141,5 @@ ls -la *.sh
 
 ---
 
-**Quick Reference Card - Keep This Handy!**
-
-```
-┌─────────────────────────────────────────────────┐
-│ ATTACK SIMULATION QUICK COMMANDS                │
-├─────────────────────────────────────────────────┤
-│ Run all Linux:    ./run-all-linux.sh            │
-│ Privilege Esc:    ./privilege-escalation.sh     │
-│ SSH Brute Force:  ./ssh-brute-force.sh          │
-│ PowerShell:       .\powershell-attacks.ps1      │
-│                                                  │
-│ Monitor Alerts:                                  │
-│ tail -f /var/ossec/logs/alerts/alerts.log       │
-│                                                  │
-│ Check Results:                                   │
-│ grep "Rule: 100" alerts.log | sort | uniq -c    │
-└─────────────────────────────────────────────────┘
-```
+**Last Updated**: 2026-02-15
+**Version**: 2.0

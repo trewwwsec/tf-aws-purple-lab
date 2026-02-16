@@ -17,12 +17,12 @@
 This playbook covers incident response procedures specific to macOS systems. macOS has unique security mechanisms (SIP, TCC, Gatekeeper, Keychain) that require specialized investigation and remediation techniques.
 
 ### Detection Rules
-- **Rule 100200-100204**: Persistence (Launch Agents/Daemons)
-- **Rule 100210-100213**: Execution (osascript, JXA)
-- **Rule 100220-100224**: Credential Access (Keychain, SSH keys)
-- **Rule 100230-100234**: Defense Evasion (Gatekeeper, SIP, TCC)
-- **Rule 100240-100243**: Discovery
-- **Rule 100250-100262**: Collection, C2, Lateral Movement
+- **Rule 200200-200204**: Persistence (Launch Agents/Daemons)
+- **Rule 200210-200213**: Execution (osascript, JXA)
+- **Rule 200220-200224**: Credential Access (Keychain, SSH keys)
+- **Rule 200230-200234**: Defense Evasion (Gatekeeper, SIP, TCC)
+- **Rule 200240-200243**: Discovery
+- **Rule 200250-200262**: Collection, C2, Lateral Movement
 
 ### macOS Security Architecture
 
