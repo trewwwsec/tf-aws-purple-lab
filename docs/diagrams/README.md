@@ -4,12 +4,16 @@ This directory contains architecture diagrams for the Cloud SOC Platform. All di
 
 ## 📊 Available Diagrams
 
-1. **[High-Level Architecture](01-high-level-architecture.md)** - Overall system architecture
-2. **[Network Architecture](02-network-architecture.md)** - AWS VPC and network topology
-3. **[Data Flow](03-data-flow.md)** - Log collection and alert generation flow
-4. **[Incident Response Workflow](04-incident-response-workflow.md)** - IR process flow
-5. **[Detection Pipeline](05-detection-pipeline.md)** - How detections work end-to-end
-6. **[MITRE ATT&CK Coverage](06-mitre-coverage.md)** - Visual coverage map
+1. **[High-Level Architecture](01-high-level-architecture.md)** — Overall system architecture with AI analyst and APT simulation layers
+2. **[Network Architecture](02-network-architecture.md)** — AWS VPC topology (public/private subnets, NAT, security groups)
+3. **[Incident Response Workflow](04-incident-response-workflow.md)** — NIST SP 800-61r2 IR process flow
+4. **[Detection Pipeline](05-detection-pipeline.md)** — End-to-end detection flow (2,226+ rules, AI anomaly detection)
+
+## 📸 Related Documentation
+
+- **[APT Simulation Demo](../APT-SIMULATION-DEMO.md)** — Live Wazuh dashboard screenshots from real deployment
+- **[MITRE ATT&CK Coverage](../MITRE_COVERAGE.md)** — Full coverage matrix (466+ techniques, 11 tactics)
+- **[Demo Screenshots](../demo-screenshots/)** — Real Wazuh captures showing alerts and MITRE mapping
 
 ## 🎨 Viewing Diagrams
 
@@ -60,5 +64,5 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax:
 
 ---
 
-**Last Updated**: 2026-01-28  
+**Last Updated**: 2026-02-15  
 **Maintainer**: Cloud SOC Platform Team

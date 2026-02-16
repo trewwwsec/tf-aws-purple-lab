@@ -9,25 +9,29 @@ flowchart LR
     subgraph "Endpoints"
         LINUX_EVENTS[Linux Events<br/>SSH, Sudo, Files]
         WIN_EVENTS[Windows Events<br/>PowerShell, Registry]
+        MAC_EVENTS[macOS Events<br/>Keychain, LaunchAgents]
     end
     
     subgraph "Wazuh Agents"
         LINUX_AGENT[Linux Agent<br/>Log Collection]
         WIN_AGENT[Windows Agent<br/>Log Collection]
+        MAC_AGENT[macOS Agent<br/>Log Collection]
     end
     
     subgraph "Wazuh Server"
         RECEIVER[Log Receiver<br/>Port 1514/1515]
         DECODER[Log Decoder<br/>Parse & Normalize]
-        RULES[Rule Engine<br/>30 Detection Rules]
+        RULES[Rule Engine<br/>2,226+ Detection Rules]
         ALERTS[Alert Manager<br/>Generate Alerts]
     end
     
     subgraph "Detection Rules"
-        SSH_RULES[SSH Rules<br/>100001-100003]
-        PS_RULES[PowerShell Rules<br/>100010-100014]
-        PRIV_RULES[Privilege Esc<br/>100020-100022]
-        CRED_RULES[Credential Dump<br/>100070-100072]
+        SSH_RULES[SSH Rules<br/>200001-200003]
+        PS_RULES[PowerShell Rules<br/>200010-200014]
+        PRIV_RULES[Privilege Esc<br/>200020-200022]
+        CRED_RULES[Credential Dump<br/>200070-200072]
+        LATERAL_RULES[Lateral Movement<br/>200090-200094]
+        EXFIL_RULES[Exfiltration<br/>200050-200054]
     end
     
     subgraph "MITRE ATT&CK"
@@ -35,6 +39,13 @@ flowchart LR
         T1059[T1059.001<br/>PowerShell]
         T1548[T1548.003<br/>Sudo Abuse]
         T1003[T1003<br/>Credential Dump]
+        T1021[T1021<br/>Remote Services]
+        T1048[T1048<br/>Exfiltration]
+    end
+    
+    subgraph "AI Analysis"
+        AI_ANALYST[AI Alert Analyst<br/>LLM Triage]
+        ANOMALY[Anomaly Detector<br/>Baseline Analysis]
     end
     
     subgraph "Response"
@@ -46,9 +57,11 @@ flowchart LR
     %% Event Flow
     LINUX_EVENTS --> LINUX_AGENT
     WIN_EVENTS --> WIN_AGENT
+    MAC_EVENTS --> MAC_AGENT
     
     LINUX_AGENT -->|Encrypted| RECEIVER
     WIN_AGENT -->|Encrypted| RECEIVER
+    MAC_AGENT -->|Encrypted| RECEIVER
     
     RECEIVER --> DECODER
     DECODER --> RULES
@@ -57,17 +70,25 @@ flowchart LR
     RULES --> PS_RULES
     RULES --> PRIV_RULES
     RULES --> CRED_RULES
+    RULES --> LATERAL_RULES
+    RULES --> EXFIL_RULES
     
     SSH_RULES -.->|Maps to| T1110
     PS_RULES -.->|Maps to| T1059
     PRIV_RULES -.->|Maps to| T1548
     CRED_RULES -.->|Maps to| T1003
+    LATERAL_RULES -.->|Maps to| T1021
+    EXFIL_RULES -.->|Maps to| T1048
     
     SSH_RULES --> ALERTS
     PS_RULES --> ALERTS
     PRIV_RULES --> ALERTS
     CRED_RULES --> ALERTS
+    LATERAL_RULES --> ALERTS
+    EXFIL_RULES --> ALERTS
     
+    ALERTS --> AI_ANALYST
+    AI_ANALYST --> ANOMALY
     ALERTS --> DASHBOARD
     DASHBOARD --> ANALYST
     ANALYST --> PLAYBOOK
@@ -79,13 +100,15 @@ flowchart LR
     classDef rules fill:#1E8900,stroke:#232F3E,stroke-width:2px,color:#fff
     classDef mitre fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff
     classDef response fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef ai fill:#E91E63,stroke:#232F3E,stroke-width:2px,color:#fff
     
-    class LINUX_EVENTS,WIN_EVENTS endpoint
-    class LINUX_AGENT,WIN_AGENT agent
+    class LINUX_EVENTS,WIN_EVENTS,MAC_EVENTS endpoint
+    class LINUX_AGENT,WIN_AGENT,MAC_AGENT agent
     class RECEIVER,DECODER,RULES,ALERTS server
-    class SSH_RULES,PS_RULES,PRIV_RULES,CRED_RULES rules
-    class T1110,T1059,T1548,T1003 mitre
+    class SSH_RULES,PS_RULES,PRIV_RULES,CRED_RULES,LATERAL_RULES,EXFIL_RULES rules
+    class T1110,T1059,T1548,T1003,T1021,T1048 mitre
     class DASHBOARD,ANALYST,PLAYBOOK response
+    class AI_ANALYST,ANOMALY ai
 ```
 
 ## Detection Pipeline Stages
@@ -108,6 +131,13 @@ flowchart LR
 - Service creation
 
 **Volume**: ~1,000-10,000 events/day per endpoint
+
+**macOS Events**:
+- Unified log (`log show`)
+- LaunchAgent/LaunchDaemon creation
+- Keychain access
+- Gatekeeper/SIP events
+- File integrity monitoring
 
 ---
 
@@ -177,15 +207,26 @@ flowchart LR
 4. Alert generated if threshold met
 5. Event logged regardless
 
-**Rule Categories** (30 total rules):
+**Rule Categories** (2,226+ total rules):
+
+*Custom Rules (82):*
 - SSH Brute Force (3 rules)
 - PowerShell Abuse (5 rules)
 - Privilege Escalation (5 rules)
 - Account Management (4 rules)
 - Persistence (4 rules)
 - Credential Access (3 rules)
-- File Integrity (4 rules)
-- Defense Evasion (3 rules)
+- Lateral Movement (6 rules)
+- Data Exfiltration (5 rules)
+- macOS Persistence (5 rules)
+- macOS Credential Access (5 rules)
+- macOS Defense Evasion (5 rules)
+- And more...
+
+*SOCFortress Community Rules (2,144):*
+- Windows Sysmon (1,500+ rules)
+- Suricata/YARA/MISP (300+ rules)
+- Cloud monitoring (100+ rules)
 
 **Rule Evaluation Time**: < 100ms per event
 
@@ -279,6 +320,8 @@ Translation: If 5+ SSH failures from same IP in 2 minutes → Alert
 - Credential Dumping (IR-PB-002)
 - PowerShell Abuse (IR-PB-003)
 - Privilege Escalation (IR-PB-004)
+- Persistence (IR-PB-005)
+- macOS Compromise (IR-PB-006)
 
 **Response Actions**:
 - Evidence collection
@@ -358,34 +401,41 @@ flowchart TD
 
 ## Detection Coverage by MITRE ATT&CK
 
-### Tactics Covered (8/12)
+### Tactics Covered (11/14)
 ```
 ✅ Initial Access (T1078, T1110)
 ✅ Execution (T1059)
 ✅ Persistence (T1053, T1543, T1547)
 ✅ Privilege Escalation (T1548, T1078)
-✅ Defense Evasion (T1027, T1070, T1562)
-✅ Credential Access (T1003)
-✅ Discovery (Limited)
-✅ Command & Control (T1071, T1105)
+✅ Defense Evasion (T1027, T1070, T1553, T1562)
+✅ Credential Access (T1003, T1552, T1555, T1558)
+✅ Discovery (T1046, T1018, T1082, T1087)
+✅ Lateral Movement (T1021)
+✅ Collection (T1005, T1113, T1560)
+✅ Command & Control (T1071, T1095, T1572)
+✅ Exfiltration (T1041, T1048, T1567)
 
-❌ Lateral Movement (Future)
-❌ Collection (Future)
-❌ Exfiltration (Future)
-❌ Impact (Future)
+⬜ Impact (not covered — intentional)
+⬜ Reconnaissance (limited coverage)
+⬜ Resource Development (limited coverage)
 ```
 
-### Techniques Covered (20+)
+### Techniques Covered (466+)
+
+*Custom rules map 45+ unique techniques. SOCFortress community rules add 400+ more.*
+
+Key techniques with dedicated detection:
 - T1110: Brute Force
 - T1059.001: PowerShell
 - T1548.003: Sudo/Sudo Caching
-- T1003: OS Credential Dumping
-- T1136.001: Create Account (Local)
-- T1053: Scheduled Task/Job
-- T1543: Create or Modify System Process
-- T1070: Indicator Removal
-- T1562: Impair Defenses
-- And 11 more...
+- T1003: OS Credential Dumping (3 sub-techniques)
+- T1021: Remote Services (5 sub-techniques)
+- T1048: Exfiltration Over Alternative Protocol
+- T1071: Application Layer Protocol (C2)
+- T1543: Create or Modify System Process (4 sub-techniques)
+- T1555: Credentials from Password Stores (Keychain, browsers)
+- T1553.001: Gatekeeper Bypass (macOS)
+- And 400+ more via SOCFortress community rules
 
 ---
 
@@ -415,5 +465,5 @@ graph LR
 ---
 
 **Diagram Type**: Detection Pipeline  
-**Last Updated**: 2026-01-28  
-**Version**: 1.0
+**Last Updated**: 2026-02-15  
+**Version**: 2.0

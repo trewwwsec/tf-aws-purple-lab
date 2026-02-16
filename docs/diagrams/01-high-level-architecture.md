@@ -30,13 +30,16 @@ graph TB
     end
     
     subgraph "Detection & Response"
-        RULES[30 Detection Rules<br/>MITRE ATT&CK Mapped]
+        RULES[2,226+ Detection Rules<br/>MITRE ATT&CK Mapped]
+        AI_ANALYST[AI Alert Analyst<br/>LLM-Powered Triage]
+        ANOMALY[Anomaly Detector<br/>Statistical Baselines]
         ALERTS[Alert Generation<br/>SIEM Dashboard]
         PLAYBOOKS[Incident Response<br/>Playbooks]
     end
     
     subgraph "Testing & Validation"
-        SIMULATIONS[Attack Simulations<br/>Atomic Red Team]
+        APT_SIM[APT29 Kill Chain<br/>Multi-Victim Orchestrator]
+        SIMULATIONS[Attack Simulations<br/>30+ Scenarios]
         EVIDENCE[Evidence Collection<br/>Forensic Tools]
     end
     
@@ -54,8 +57,12 @@ graph TB
     
     WAZUH --> RULES
     RULES --> ALERTS
+    ALERTS --> AI_ANALYST
+    AI_ANALYST --> ANOMALY
     ALERTS --> PLAYBOOKS
     
+    APT_SIM -.->|Deploy & Execute| LINUX
+    APT_SIM -.->|Deploy & Execute| WINDOWS
     SIMULATIONS -.->|Test Detections| LINUX
     SIMULATIONS -.->|Test Detections| WINDOWS
     PLAYBOOKS --> EVIDENCE
@@ -74,7 +81,7 @@ graph TB
     class IGW,NAT aws
     class WAZUH,LINUX,WINDOWS server
     class SG1,SG2 security
-    class RULES,ALERTS,PLAYBOOKS,SIMULATIONS,EVIDENCE detection
+    class RULES,ALERTS,PLAYBOOKS,AI_ANALYST,ANOMALY,SIMULATIONS,APT_SIM,EVIDENCE detection
     class ANALYST,ATTACKER external
 ```
 
@@ -106,26 +113,48 @@ graph TB
   - Target for PowerShell attack simulations
 
 ### Detection Layer
-- **30 Detection Rules**: MITRE ATT&CK mapped
+- **2,226+ Detection Rules**: 82 custom + 2,144 SOCFortress community rules
   - SSH brute force (T1110)
   - PowerShell abuse (T1059.001)
   - Privilege escalation (T1548.003)
   - Credential dumping (T1003)
+  - Lateral movement (T1021)
   - Persistence mechanisms (T1053, T1543)
-  - And more...
+  - Data exfiltration (T1048, T1567)
+  - macOS-specific detections (32 rules)
+  - 466+ MITRE ATT&CK techniques mapped
+
+### AI & Analytics Layer
+- **AI Alert Analyst**: LLM-powered alert triage (OpenAI, Anthropic, Ollama)
+  - Context-aware summaries and investigation steps
+  - Automatic playbook linking
+  - Threat intelligence enrichment
+- **Anomaly Detection Engine**: Statistical baseline analysis
+  - Login pattern anomalies
+  - C2 beaconing detection
+  - DNS exfiltration detection
+  - Process behavior profiling
 
 ### Response Layer
 - **Incident Response Playbooks**:
   - SSH Brute Force (IR-PB-001)
   - Credential Dumping (IR-PB-002)
-  - Complete NIST IR lifecycle
+  - PowerShell Abuse (IR-PB-003)
+  - Privilege Escalation (IR-PB-004)
+  - Persistence (IR-PB-005)
+  - macOS Compromise (IR-PB-006)
+  - Complete NIST SP 800-61r2 lifecycle
   - Evidence collection tools
 
 ### Testing Layer
-- **Attack Simulations**: Atomic Red Team framework
-  - SSH brute force simulation
-  - PowerShell attack simulation
-  - Privilege escalation simulation
+- **APT29 Kill Chain Orchestrator**: Multi-victim deployment via SSH/SCP
+  - Deploys and executes 30+ attack techniques
+  - Cross-platform: Linux, macOS, Windows
+  - 6-phase kill chain (deploy → discovery → credential → C2 → priv esc → cleanup)
+- **Attack Simulations**: Individual technique scripts
+  - Credential harvesting (8 scenarios)
+  - Lateral movement (7 scenarios)
+  - C2 and exfiltration (7 scenarios)
   - Validates detection effectiveness
 
 ## Data Flow
@@ -163,5 +192,5 @@ graph TB
 ---
 
 **Diagram Type**: High-Level Architecture  
-**Last Updated**: 2026-01-28  
-**Version**: 1.0
+**Last Updated**: 2026-02-15  
+**Version**: 2.0
