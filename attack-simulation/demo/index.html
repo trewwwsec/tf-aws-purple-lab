@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud SOC Platform — APT Kill Chain Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1a2235;
+            --bg-card-hover: #1e2841;
+            --border: #2a3650;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, 0.3);
+            --accent-orange: #f59e0b;
+            --accent-orange-glow: rgba(245, 158, 11, 0.2);
+            --accent-blue: #3b82f6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.2);
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, 0.2);
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: white;
+        }
+
+        .header-title h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-red);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--accent-red-glow); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 6px transparent; }
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            transition: all 0.3s;
+        }
+
+        .stat-card.alert {
+            border-color: rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-value.red { color: var(--accent-red); }
+        .stat-value.orange { color: var(--accent-orange); }
+        .stat-value.blue { color: var(--accent-blue); }
+        .stat-value.green { color: var(--accent-green); }
+        .stat-value.purple { color: var(--accent-purple); }
+
+        /* Two column layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 16px;
+        }
+
+        /* Terminal */
+        .terminal {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #161b22;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .terminal-dot.red { background: #ff5f57; }
+        .terminal-dot.yellow { background: #febc2e; }
+        .terminal-dot.green { background: #28c840; }
+
+        .terminal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: 8px;
+        }
+
+        .terminal-body {
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.7;
+            max-height: 520px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        .terminal-body::-webkit-scrollbar { width: 6px; }
+        .terminal-body::-webkit-scrollbar-track { background: transparent; }
+        .terminal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .line { opacity: 0; animation: fadeInLine 0.3s forwards; }
+        .line.prompt { color: var(--accent-green); }
+        .line.info { color: var(--accent-blue); }
+        .line.warn { color: var(--accent-orange); }
+        .line.error { color: var(--accent-red); }
+        .line.dim { color: var(--text-muted); }
+        .line.header-line {
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+        .line.finding {
+            padding: 6px 8px;
+            margin: 4px 0;
+            border-radius: 4px;
+            border-left: 3px solid;
+        }
+        .line.finding.critical {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+        .line.finding.high {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+        .line.finding.medium {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        @keyframes fadeInLine {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Sidebar */
+        .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .panel-body { padding: 12px 16px; }
+
+        /* Kill chain visualization */
+        .kill-chain-phase {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            opacity: 0.3;
+            transition: all 0.5s;
+        }
+
+        .kill-chain-phase.active {
+            opacity: 1;
+        }
+
+        .kill-chain-phase.complete .phase-icon {
+            background: var(--accent-green);
+            box-shadow: 0 0 12px var(--accent-green-glow);
+        }
+
+        .kill-chain-phase.running .phase-icon {
+            background: var(--accent-orange);
+            box-shadow: 0 0 12px var(--accent-orange-glow);
+            animation: pulseIcon 1s infinite;
+        }
+
+        @keyframes pulseIcon {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .phase-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            background: var(--border);
+            flex-shrink: 0;
+            transition: all 0.5s;
+        }
+
+        .phase-label {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .phase-sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .phase-connector {
+            width: 2px;
+            height: 8px;
+            background: var(--border);
+            margin-left: 13px;
+            transition: background 0.5s;
+        }
+
+        .phase-connector.done { background: var(--accent-green); }
+
+        /* MITRE heat map */
+        .mitre-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .mitre-cell {
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-align: center;
+            font-weight: 600;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid transparent;
+            transition: all 0.5s;
+            opacity: 0.3;
+        }
+
+        .mitre-cell.hit {
+            opacity: 1;
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-red);
+        }
+
+        .mitre-cell.active {
+            opacity: 1;
+            border-color: rgba(245, 158, 11, 0.4);
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-orange);
+            animation: pulseCell 1.5s infinite;
+        }
+
+        @keyframes pulseCell {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2); }
+            50% { box-shadow: 0 0 8px 2px rgba(245, 158, 11, 0.15); }
+        }
+
+        /* Target status */
+        .target {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            font-size: 12px;
+        }
+
+        .target-icon { font-size: 16px; }
+
+        .target-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: auto;
+            background: var(--border);
+            transition: all 0.5s;
+        }
+
+        .target-status.connected { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green-glow); }
+        .target-status.attacking { background: var(--accent-orange); animation: pulse 1s infinite; }
+        .target-status.compromised { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red-glow); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">S</div>
+                <div class="header-title">
+                    <h1>Cloud SOC Platform</h1>
+                    <p>AI-Powered Anomaly Detection &amp; APT Kill Chain Simulation</p>
+                </div>
+            </div>
+            <div class="live-badge">
+                <div class="live-dot"></div>
+                LIVE DETECTION
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-row">
+            <div class="stat-card" id="stat-events">
+                <div class="stat-label">Events Analyzed</div>
+                <div class="stat-value blue" id="val-events">0</div>
+            </div>
+            <div class="stat-card" id="stat-anomalies">
+                <div class="stat-label">Anomalies Detected</div>
+                <div class="stat-value red" id="val-anomalies">0</div>
+            </div>
+            <div class="stat-card" id="stat-mitre">
+                <div class="stat-label">MITRE Techniques</div>
+                <div class="stat-value purple" id="val-mitre">0</div>
+            </div>
+            <div class="stat-card" id="stat-targets">
+                <div class="stat-label">Targets Compromised</div>
+                <div class="stat-value orange" id="val-targets">0</div>
+            </div>
+            <div class="stat-card" id="stat-risk">
+                <div class="stat-label">Risk Level</div>
+                <div class="stat-value green" id="val-risk">LOW</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Terminal output -->
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                    <span class="terminal-title">detect_anomalies.py — APT29 Kill Chain Detection</span>
+                </div>
+                <div class="terminal-body" id="terminal"></div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Kill Chain Progress -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>⚔️ APT29 Kill Chain</span>
+                        <span style="font-size:11px;color:var(--text-muted)" id="phase-counter">Phase 0/6</span>
+                    </div>
+                    <div class="panel-body" id="killchain">
+                        <div class="kill-chain-phase" data-phase="1"><div class="phase-icon">🔍</div><div><div class="phase-label">Discovery & Recon</div><div class="phase-sub">T1046, T1018, T1007</div></div></div>
+                        <div class="phase-connector"></div>
+                        <div class="kill-chain-phase" data-phase="2"><div class="phase-icon">🔓</div><div><div class="phase-label">Credential Harvest</div><div class="phase-sub">T1003, T1552, T1555</div></div></div>
+                        <div class="phase-connector"></div>
+                        <div class="kill-chain-phase" data-phase="3"><div class="phase-icon">🔀</div><div><div class="phase-label">Lateral Movement</div><div class="phase-sub">T1021, T1070</div></div></div>
+                        <div class="phase-connector"></div>
+                        <div class="kill-chain-phase" data-phase="4"><div class="phase-icon">📡</div><div><div class="phase-label">C2 Beaconing</div><div class="phase-sub">T1071.001 — HTTP</div></div></div>
+                        <div class="phase-connector"></div>
+                        <div class="kill-chain-phase" data-phase="5"><div class="phase-icon">🌐</div><div><div class="phase-label">DNS Exfiltration</div><div class="phase-sub">T1071.004, T1048.003</div></div></div>
+                        <div class="phase-connector"></div>
+                        <div class="kill-chain-phase" data-phase="6"><div class="phase-icon">📦</div><div><div class="phase-label">Data Staging & Exfil</div><div class="phase-sub">T1074, T1567</div></div></div>
+                    </div>
+                </div>
+
+                <!-- MITRE Coverage -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>🎯 MITRE ATT&CK Coverage</span>
+                        <span style="font-size:11px;color:var(--text-muted)" id="mitre-count">0/16</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="mitre-grid" id="mitre-grid">
+                            <div class="mitre-cell" data-tech="T1046">T1046</div>
+                            <div class="mitre-cell" data-tech="T1018">T1018</div>
+                            <div class="mitre-cell" data-tech="T1007">T1007</div>
+                            <div class="mitre-cell" data-tech="T1082">T1082</div>
+                            <div class="mitre-cell" data-tech="T1003">T1003</div>
+                            <div class="mitre-cell" data-tech="T1552">T1552</div>
+                            <div class="mitre-cell" data-tech="T1555">T1555</div>
+                            <div class="mitre-cell" data-tech="T1558">T1558</div>
+                            <div class="mitre-cell" data-tech="T1021">T1021</div>
+                            <div class="mitre-cell" data-tech="T1070">T1070</div>
+                            <div class="mitre-cell" data-tech="T1071">T1071</div>
+                            <div class="mitre-cell" data-tech="T1048">T1048</div>
+                            <div class="mitre-cell" data-tech="T1074">T1074</div>
+                            <div class="mitre-cell" data-tech="T1567">T1567</div>
+                            <div class="mitre-cell" data-tech="T1548">T1548</div>
+                            <div class="mitre-cell" data-tech="T1110">T1110</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multi-victim targets -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>🎯 Target Machines</span>
+                    </div>
+                    <div class="panel-body" id="targets-panel">
+                        <div class="target" id="target-linux1"><span class="target-icon">🐧</span><span>linux-endpoint (10.0.2.100)</span><div class="target-status" id="ts-linux1"></div></div>
+                        <div class="target" id="target-linux2"><span class="target-icon">🐧</span><span>linux-server (10.0.2.101)</span><div class="target-status" id="ts-linux2"></div></div>
+                        <div class="target" id="target-macos"><span class="target-icon">🍎</span><span>macos-workstation (10.0.3.50)</span><div class="target-status" id="ts-macos"></div></div>
+                        <div class="target" id="target-win"><span class="target-icon">🪟</span><span>win-endpoint (10.0.4.200)</span><div class="target-status" id="ts-win"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        let eventCount = 0;
+        let anomalyCount = 0;
+        let mitreCount = 0;
+        let targetCount = 0;
+        let lineDelay = 0;
+
+        function addLine(text, cls = '', delay = 0) {
+            lineDelay += delay;
+            setTimeout(() => {
+                const div = document.createElement('div');
+                div.className = `line ${cls}`;
+                div.innerHTML = text;
+                terminal.appendChild(div);
+                terminal.scrollTop = terminal.scrollHeight;
+            }, lineDelay);
+        }
+
+        function updateStat(id, value) {
+            setTimeout(() => {
+                document.getElementById(id).textContent = value;
+                document.getElementById(id).parentElement.classList.add('alert');
+                setTimeout(() => document.getElementById(id).parentElement.classList.remove('alert'), 800);
+            }, lineDelay);
+        }
+
+        function setRisk(level, color) {
+            setTimeout(() => {
+                const el = document.getElementById('val-risk');
+                el.textContent = level;
+                el.className = `stat-value ${color}`;
+            }, lineDelay);
+        }
+
+        function activatePhase(num) {
+            setTimeout(() => {
+                document.querySelectorAll('.kill-chain-phase').forEach(p => {
+                    const n = parseInt(p.dataset.phase);
+                    if (n < num) { p.classList.add('active', 'complete'); p.classList.remove('running'); }
+                    else if (n === num) { p.classList.add('active', 'running'); }
+                });
+                document.querySelectorAll('.phase-connector').forEach((c, i) => {
+                    if (i < num - 1) c.classList.add('done');
+                });
+                document.getElementById('phase-counter').textContent = `Phase ${num}/6`;
+            }, lineDelay);
+        }
+
+        function hitMitre(tech) {
+            setTimeout(() => {
+                const cell = document.querySelector(`.mitre-cell[data-tech="${tech}"]`);
+                if (cell && !cell.classList.contains('hit')) {
+                    cell.classList.add('active');
+                    setTimeout(() => { cell.classList.remove('active'); cell.classList.add('hit'); }, 1500);
+                    mitreCount++;
+                    document.getElementById('mitre-count').textContent = `${mitreCount}/16`;
+                    updateStat('val-mitre', mitreCount);
+                }
+            }, lineDelay);
+        }
+
+        function setTarget(id, status) {
+            setTimeout(() => {
+                document.getElementById(id).className = `target-status ${status}`;
+                if (status === 'compromised') {
+                    targetCount++;
+                    updateStat('val-targets', targetCount);
+                }
+            }, lineDelay);
+        }
+
+        function addEvents(n) {
+            eventCount += n;
+            updateStat('val-events', eventCount);
+        }
+
+        function addAnomaly() {
+            anomalyCount++;
+            updateStat('val-anomalies', anomalyCount);
+        }
+
+        // ============================
+        // DEMO SEQUENCE
+        // ============================
+
+        function runDemo() {
+            // Startup
+            addLine('$ python3 detect_anomalies.py --demo', 'prompt', 300);
+            addLine('', '', 100);
+            addLine('╔══════════════════════════════════════════════════════╗', 'header-line', 400);
+            addLine('║   AI Anomaly Detection Agent — Cloud SOC Platform   ║', 'header-line', 80);
+            addLine('╚══════════════════════════════════════════════════════╝', 'header-line', 80);
+            addLine('', '', 200);
+            addLine('[INFO] Loading behavioral baselines...', 'info', 300);
+            addLine('[INFO] Baseline profiles loaded for 4 agents', 'info', 500);
+            addLine('[INFO] Starting anomaly scan (demo mode)...', 'info', 400);
+            addLine('', '', 300);
+
+            // Phase 1: Discovery
+            activatePhase(1);
+            setTarget('ts-linux1', 'connected');
+            setTarget('ts-linux2', 'connected');
+            setTarget('ts-macos', 'connected');
+            setTarget('ts-win', 'connected');
+            addLine('═══ PHASE 1: Discovery & Recon ═══', 'header-line', 600);
+            addEvents(28);
+            addLine('[SCAN] Analyzing 28 discovery events across 4 agents...', 'info', 500);
+            setTarget('ts-linux1', 'attacking');
+            addLine('', '', 400);
+
+            hitMitre('T1046');
+            addLine('⚠ Network scan detected: port sweep on 10.0.2.0/24', 'finding medium', 500);
+            addAnomaly();
+            hitMitre('T1082');
+            addLine('⚠ System profiler executed on linux-endpoint', 'finding medium', 400);
+            addAnomaly();
+            hitMitre('T1018');
+            addLine('⚠ LOTL host discovery: arp -a, /etc/hosts, last', 'finding medium', 400);
+            addAnomaly();
+            hitMitre('T1007');
+            setTarget('ts-linux1', 'compromised');
+            addLine('', '', 300);
+
+            // Phase 2: Credential Harvest
+            activatePhase(2);
+            addLine('═══ PHASE 2: Credential Harvesting ═══', 'header-line', 800);
+            addEvents(22);
+            addLine('[SCAN] Analyzing 22 credential access events...', 'info', 500);
+            setTarget('ts-linux2', 'attacking');
+            setTarget('ts-macos', 'attacking');
+            addLine('', '', 400);
+
+            hitMitre('T1003');
+            addLine('🔴 CRITICAL: /etc/shadow read attempt (z=8.2)', 'finding critical', 600);
+            addAnomaly();
+            hitMitre('T1552');
+            addLine('🔴 SSH private key staged to /tmp (T1552.004)', 'finding critical', 500);
+            addAnomaly();
+            hitMitre('T1555');
+            addLine('🟠 HIGH: macOS Keychain dump-keychain (T1555.001)', 'finding high', 500);
+            addAnomaly();
+            hitMitre('T1558');
+            addLine('🟠 HIGH: Kerberos keytab enumeration (T1558.003)', 'finding high', 400);
+            addAnomaly();
+            setTarget('ts-linux2', 'compromised');
+            setTarget('ts-macos', 'compromised');
+            setRisk('MEDIUM', 'orange');
+            addLine('', '', 300);
+
+            // Phase 3: Lateral Movement
+            activatePhase(3);
+            addLine('═══ PHASE 3: Lateral Movement ═══', 'header-line', 800);
+            addEvents(15);
+            addLine('[SCAN] Analyzing 15 lateral movement events...', 'info', 500);
+            addLine('', '', 400);
+
+            hitMitre('T1021');
+            addLine('🟠 SSH pivot: agent forwarding to 10.0.2.101', 'finding high', 500);
+            addAnomaly();
+            hitMitre('T1070');
+            addLine('🔴 Log tampering: /var/log/auth.log accessed', 'finding critical', 500);
+            addAnomaly();
+            addLine('🟠 Timestomping detected: touch -t on 3 files', 'finding high', 400);
+            addAnomaly();
+            setRisk('HIGH', 'red');
+            addLine('', '', 300);
+
+            // Phase 4: C2 Beaconing
+            activatePhase(4);
+            addLine('═══ PHASE 4: C2 Beaconing ═══', 'header-line', 800);
+            addEvents(20);
+            addLine('[SCAN] Analyzing 20 outbound connection events...', 'info', 500);
+            addLine('[AI] Running beacon interval analysis...', 'info', 600);
+            addLine('', '', 400);
+
+            hitMitre('T1071');
+            addLine('🔴 CRITICAL: Periodic beaconing to 185.220.101.42', 'finding critical', 700);
+            addLine('   12 connections at ~5.0min intervals (CV=0.026)', 'dim', 200);
+            addLine('   MITRE: T1071.001 — Command and Control', 'dim', 200);
+            addAnomaly();
+            setTarget('ts-win', 'attacking');
+            addLine('', '', 300);
+
+            // Phase 5: DNS Exfiltration
+            activatePhase(5);
+            addLine('═══ PHASE 5: DNS Exfiltration ═══', 'header-line', 800);
+            addEvents(30);
+            addLine('[SCAN] Analyzing 30 DNS query events...', 'info', 500);
+            addLine('[AI] Computing subdomain entropy...', 'info', 600);
+            addLine('', '', 400);
+
+            hitMitre('T1048');
+            addLine('🔴 CRITICAL: High-entropy DNS subdomains (z=7.0)', 'finding critical', 700);
+            addLine('   25 queries to evil-analytics.com, avg entropy 4.67', 'dim', 200);
+            addAnomaly();
+            addLine('🔴 CRITICAL: Encoded DNS queries avg 71 chars (z=3.5)', 'finding critical', 500);
+            addLine('   Normal query length: &lt;30 chars — data exfiltration', 'dim', 200);
+            addAnomaly();
+            addLine('🟠 DNS volume spike: 25 queries/hour (baseline: 12.8)', 'finding high', 400);
+            addAnomaly();
+            setTarget('ts-win', 'compromised');
+            setRisk('CRITICAL', 'red');
+            addLine('', '', 300);
+
+            // Phase 6: Data Staging
+            activatePhase(6);
+            addLine('═══ PHASE 6: Data Staging & Exfil ═══', 'header-line', 800);
+            addEvents(18);
+            addLine('[SCAN] Analyzing 18 file/network events...', 'info', 500);
+            addLine('', '', 400);
+
+            hitMitre('T1074');
+            addLine('🔴 Data staging: tar archive in /tmp (T1074.001)', 'finding critical', 500);
+            addAnomaly();
+            hitMitre('T1567');
+            addLine('🔴 base64 → HTTP POST exfiltration (T1048.003)', 'finding critical', 500);
+            addAnomaly();
+            hitMitre('T1548');
+            addLine('🟠 Sudo spike: 20 commands/day (baseline: 5.5)', 'finding high', 400);
+            addAnomaly();
+            hitMitre('T1110');
+            addLine('🔴 Failed login spike: 20/hour (baseline: 1.0)', 'finding critical', 400);
+            addAnomaly();
+            addLine('', '', 300);
+
+            // Summary
+            addLine('══════════════════════════════════════════════════════', 'header-line', 800);
+            addLine('', '', 100);
+            addLine('⚡ ATTACK NARRATIVE', 'header-line', 400);
+            addLine('  APT29-style intrusion detected across 4 hosts.', '', 300);
+            addLine('  Kill chain: Discovery → Credential Theft →', '', 200);
+            addLine('  Lateral Movement → C2 Beaconing → DNS Exfil', '', 200);
+            addLine('', '', 200);
+            addLine('  Risk Level: <span style="color:#ef4444;font-weight:700">█████████ CRITICAL</span>', '', 400);
+            addLine('  Confidence: <span style="color:#f59e0b;font-weight:700">94%</span> — Coordinated multi-stage APT activity', '', 300);
+            addLine('', '', 200);
+            addLine('[INFO] 18 anomalies detected across 133 events', 'info', 500);
+            addLine('[INFO] Analysis method: AI + Statistical Baseline', 'info', 300);
+            addLine('[INFO] Scan complete. Investigate immediately.', 'info', 400);
+        }
+
+        // Start demo after brief delay
+        setTimeout(runDemo, 800);
+    </script>
+</body>
+</html>

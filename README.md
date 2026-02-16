@@ -5,10 +5,11 @@
 [![Wazuh](https://img.shields.io/badge/Wazuh-SIEM-blue?style=for-the-badge)](https://wazuh.com/)
 [![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red?style=for-the-badge)](https://attack.mitre.org/)
 [![AI Powered](https://img.shields.io/badge/AI-Powered-blueviolet?style=for-the-badge&logo=openai)](ai-analyst/)
+[![APT Simulation](https://img.shields.io/badge/APT29-Kill_Chain-darkred?style=for-the-badge)](docs/APT-SIMULATION-DEMO.md)
 [![macOS](https://img.shields.io/badge/macOS-Supported-lightgrey?style=for-the-badge&logo=apple)](detections/04-macos-attacks.md)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-> **A production-ready Cloud Security Operations Center (SOC) built with Infrastructure as Code, featuring 2,226+ detection rules across Windows, Linux, and macOS. Includes custom rules + SOCFortress community rules with 466+ MITRE ATT&CK techniques mapped, AI-powered alert analysis, automated attack simulations, and comprehensive incident response playbooks.**
+> **A production-ready Cloud Security Operations Center (SOC) built with Infrastructure as Code, featuring 2,226+ detection rules across Windows, Linux, and macOS. Includes custom rules + SOCFortress community rules with 466+ MITRE ATT&CK techniques mapped, AI-powered alert analysis, multi-victim APT29 kill chain simulation across Linux/macOS/Windows, and comprehensive incident response playbooks.**
 
 ---
 
@@ -89,13 +90,15 @@ This project demonstrates the design and implementation of a **complete Cloud Se
 | **Defense Evasion** | Gatekeeper, SIP, TCC bypass |
 | **Attack Simulation** | Purple team testing script |
 
-### 🔴 Attack Simulation
+### 🔴 Attack Simulation & APT Kill Chain
 | Feature | Description |
 |---------|-------------|
-| **Atomic Red Team** | Framework-based attack simulations |
-| **15+ Scenarios** | SSH brute force, PowerShell abuse, privilege escalation |
-| **Automated Testing** | Scripts to validate detection coverage |
-| **Purple Team Ready** | Offensive + defensive capabilities |
+| **APT29 Kill Chain** | Multi-victim orchestrator across Linux/macOS/Windows |
+| **28 MITRE Techniques** | Credential harvest, C2, DNS exfil, lateral movement |
+| **Cross-Platform** | Platform-aware scripts with `is_darwin`/`is_linux` guards |
+| **30+ Scenarios** | SSH brute, credential theft, DNS tunneling, data staging |
+| **AI Anomaly Detection** | Statistical baseline + LLM-powered threat analysis |
+| **Purple Team Ready** | Offensive + defensive with auto-cleanup |
 
 ### 📋 Incident Response
 | Feature | Description |
@@ -333,11 +336,17 @@ tf-aws-soc/
 ├── 📁 attack-simulation/            # Purple Team Tools
 │   ├── README.md                    # Framework documentation
 │   ├── QUICK-REFERENCE.md           # Quick start guide
+│   ├── common.sh                    # Shared utilities (logging, platform detection)
+│   ├── apt-credential-harvest.sh    # 8 credential theft simulations (Linux/macOS)
+│   ├── apt-lateral-movement.sh      # 7 lateral movement techniques (Linux/macOS)
+│   ├── apt-c2-exfil.sh             # 7 C2 + exfiltration techniques
+│   ├── apt-full-killchain.sh        # Multi-victim APT29 orchestrator
 │   ├── ssh-brute-force.sh           # SSH attack simulation
 │   ├── privilege-escalation.sh      # Sudo abuse simulation
 │   ├── powershell-attacks.ps1       # PowerShell simulation
 │   ├── macos-attacks.sh             # macOS attack simulation
-│   └── run-all-linux.sh             # Master orchestration
+│   ├── run-all-linux.sh             # Master orchestration
+│   └── demo/index.html              # Interactive demo dashboard
 │
 ├── 📁 incident-response/            # IR Procedures
 │   ├── README.md                    # IR framework overview
@@ -354,6 +363,9 @@ tf-aws-soc/
 │       └── collect-evidence.sh      # Forensic collection
 │
 ├── 📁 docs/                         # Documentation
+│   ├── APT-SIMULATION-DEMO.md       # APT kill chain demo with screenshots
+│   ├── MITRE_COVERAGE.md            # Full MITRE ATT&CK coverage matrix
+│   ├── demo-screenshots/            # Real Wazuh dashboard captures
 │   └── diagrams/
 │       ├── 01-high-level-architecture.md
 │       ├── 02-network-architecture.md
@@ -453,46 +465,76 @@ macOS:   ██████████████████████ 28 r
 
 ---
 
-## 🔴 Attack Simulations
+## 🔴 Attack Simulations & APT Kill Chain
+
+### 📸 Live Demo — Real Wazuh Alerts
+
+> These screenshots are from a live deployment to AWS on Feb 15, 2026. The Wazuh dashboard shows real alerts triggered by the attack simulation scripts running on production infrastructure.
+
+| Dashboard Overview | Critical Alert Investigation |
+|---|---|
+| ![Wazuh Dashboard](docs/demo-screenshots/wazuh-dashboard-overview.png) | ![Alert Detail](docs/demo-screenshots/wazuh-alert-detail.png) |
+| *923 events, MITRE ATT&CK mapping, 3 agents* | *Rule 200002: SSH brute force → successful login (Level 12)* |
+
+📸 **[View Full Demo with All Screenshots →](docs/APT-SIMULATION-DEMO.md)**
+
+### APT29 Kill Chain Orchestrator
+
+The multi-victim kill chain deploys and executes attack scripts across Linux, macOS, and Windows targets via SSH:
+
+```bash
+# Define targets
+export LINUX_TARGETS="ubuntu@10.0.2.100,ubuntu@10.0.2.101"
+export MACOS_TARGETS="admin@10.0.3.50"
+export WINDOWS_TARGETS="administrator@10.0.4.200"
+
+# Run full kill chain
+./attack-simulation/apt-full-killchain.sh
+
+# Or target one platform
+./attack-simulation/apt-full-killchain.sh --linux-only
+```
 
 ### Available Simulations
 
-| Simulation | Platform | MITRE Technique | Scenarios |
-|------------|----------|-----------------|-----------|
-| **SSH Brute Force** | Linux | T1110 | 3 |
+| Script | Platform | MITRE Techniques | Scenarios |
+|--------|----------|------------------|-----------|
+| **APT Credential Harvest** | Linux, macOS | T1003, T1552, T1555, T1558 | 8 |
+| **APT Lateral Movement** | Linux, macOS | T1046, T1018, T1007, T1021, T1070 | 7 |
+| **APT C2 & Exfiltration** | Linux, macOS | T1071, T1048, T1074, T1567, T1105 | 7 |
+| **APT Full Kill Chain** | All | All above | Multi-phase |
 | **Privilege Escalation** | Linux | T1548.003 | 7 |
+| **SSH Brute Force** | Linux | T1110 | 3 |
 | **PowerShell Abuse** | Windows | T1059.001 | 5+ |
-| **macOS Attacks** | macOS | Multiple | 7+ |
+| **macOS Attacks** | macOS | T1543, T1059, T1553 | 7+ |
 
-### Usage Example
+### Kill Chain Phases
 
-```bash
-# Run SSH brute force simulation
-export SSH_TARGET_HOST="10.0.2.155"
-export SSH_TARGET_USER="ubuntu"
-./attack-simulation/ssh-brute-force.sh
-
-# Run privilege escalation simulation
-./attack-simulation/privilege-escalation.sh
-
-# Run all Linux simulations
-./attack-simulation/run-all-linux.sh
-
-# Run macOS attack simulations
-./attack-simulation/macos-attacks.sh
+```
+Phase 1: Deploy      → SCP scripts to all targets
+    │
+Phase 2: Discovery   → Network recon, service enum, LOTL
+    │
+Phase 3: Credentials → Shadow/Keychain, SSH keys, cloud creds
+    │
+Phase 4: C2 & Exfil  → HTTP beaconing, DNS tunneling, staging
+    │
+Phase 5: Priv Esc    → Sudo abuse, SUID exploitation
+    │
+Phase 6: Cleanup     → Collect logs, remove artifacts
 ```
 
 ### Expected Results
 
 | Simulation | Expected Alert | Time to Detect |
 |------------|----------------|----------------|
-| SSH Brute Force (5+ failures) | Rule 100001 | < 2 minutes |
-| Successful login after failures | Rule 100002 | < 10 seconds |
+| SSH Brute Force (5+ failures) | Rule 200001 | < 2 minutes |
+| Successful login after failures | Rule 200002 (CRITICAL) | < 10 seconds |
+| Lateral SSH pivoting | Rule 200094 | < 10 seconds |
 | Sudo with bash/python | Rule 100021 | < 10 seconds |
 | PowerShell encoded command | Rule 100010 | < 10 seconds |
-| Mimikatz detection | Rule 100013 | < 10 seconds |
 
-📚 **[View Attack Simulation Framework →](attack-simulation/)**
+📚 **[View Full APT Demo Documentation →](docs/APT-SIMULATION-DEMO.md)** · **[Attack Simulation Framework →](attack-simulation/)**
 
 ---
 
@@ -675,7 +717,7 @@ Detection categories: login anomalies, new processes, privilege escalation spike
 |-----------|-------|---------------|
 | **Terraform Infrastructure** | 7 | ~500 |
 | **Detection Rules** | 70 | 2,226+ rules |
-| **Attack Simulations** | 7 | 1,850+ |
+| **Attack Simulations** | 12 | 3,200+ |
 | **Incident Response** | 8 | 4,500+ |
 | **Architecture Diagrams** | 5 | 1,292 |
 | **AI Alert Analyst** | 8 | 1,500+ |
@@ -722,8 +764,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Areas for Contribution
 
-- [ ] Additional detection rules for Lateral Movement, Exfiltration
-- [ ] More attack simulation scenarios
+- [x] Additional detection rules for Lateral Movement, Exfiltration
+- [x] APT29 Kill Chain simulation with multi-victim orchestrator
+- [x] Cross-platform attack scripts (Linux + macOS)
+- [ ] Windows PowerShell reverse-shell simulation
 - [ ] Additional incident response playbooks
 - [ ] Multi-region deployment support
 - [ ] High availability configuration
