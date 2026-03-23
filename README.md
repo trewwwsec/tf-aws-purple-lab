@@ -192,7 +192,7 @@ terraform plan
 terraform apply
 
 # 6. Get Wazuh server IP
-terraform output wazuh_public_ip
+terraform output wazuh_server_public_ip
 ```
 
 ### What Gets Deployed
@@ -326,7 +326,6 @@ tf-aws-soc/
 │
 ├── 📁 detections/                   # Detection Documentation
 │   ├── README.md                    # Deployment guide
-│   ├── DETECTION-SUMMARY.md         # Coverage overview
 │   ├── 01-ssh-brute-force.md        # SSH detection docs
 │   ├── 02-powershell-abuse.md       # PowerShell detection docs
 │   ├── 03-privilege-escalation.md   # Privilege esc docs
@@ -684,7 +683,7 @@ Detection categories: login anomalies, new processes, privilege escalation spike
 ### Additional Documentation
 
 - [Detection Deployment Guide](detections/README.md)
-- [Detection Summary & Metrics](detections/DETECTION-SUMMARY.md)
+- [Detection Summary & Metrics](detections/README.md)
 - [Attack Simulation Quick Reference](attack-simulation/QUICK-REFERENCE.md)
 - [Incident Report Template](incident-response/templates/incident-report-template.md)
 

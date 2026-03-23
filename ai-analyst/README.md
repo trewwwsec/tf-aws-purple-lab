@@ -69,6 +69,16 @@ export OPENAI_API_KEY="your-key"
 # OR
 export ANTHROPIC_API_KEY="your-key"
 # OR use local Ollama (no API key needed)
+
+# Required for live Wazuh mode
+export WAZUH_PASSWORD="your-wazuh-api-password"
+
+# Required if you use RAG/OpenSearch
+export OPENSEARCH_USER="your-opensearch-user"
+export OPENSEARCH_PASSWORD="your-opensearch-password"
+
+# Required for API server auth (enabled by default)
+export AI_ANALYST_API_TOKEN="long-random-token"
 ```
 
 ### Alert Analysis
@@ -85,6 +95,12 @@ python src/analyze_alert.py --monitor
 
 # Generate incident report
 python src/analyze_alert.py --alert-id 200001 --report
+
+# Write report to file
+python src/analyze_alert.py --alert-id 200001 --report /tmp/incident-report.md
+
+# Run in explicit demo mode (mock fallbacks allowed)
+python src/analyze_alert.py --demo --mode demo
 ```
 
 ### Anomaly Detection
@@ -104,6 +120,9 @@ python src/detect_anomalies.py --demo --format json
 
 # Adjust sensitivity (lower threshold = more alerts)
 python src/detect_anomalies.py --demo --threshold 2.0
+
+# Use config-defined defaults (lookback/interval/threshold/categories)
+python src/detect_anomalies.py --config config/settings.yaml
 ```
 
 ### Example Alert Analysis Output
@@ -155,22 +174,26 @@ python src/detect_anomalies.py --demo --threshold 2.0
 ```
 ai-analyst/
 ├── README.md                    # This file
+├── ai-analyze.sh                # Wazuh active-response entrypoint
 ├── requirements.txt             # Python dependencies
 ├── config/
-│   ├── settings.yaml            # Configuration settings
-│   └── playbook_mapping.yaml    # Alert to playbook mapping
+│   └── settings.yaml            # Runtime and security configuration
 ├── prompts/
 │   ├── analyze_alert.txt        # Alert analysis prompt
 │   └── anomaly_analysis.txt     # Anomaly detection prompt
 ├── src/
 │   ├── analyze_alert.py         # Alert analyst CLI
 │   ├── detect_anomalies.py      # Anomaly detector CLI
+│   ├── api_server.py            # REST API server
 │   ├── anomaly_detector.py      # Anomaly detection engine
 │   ├── baseline_engine.py       # Behavioral baseline builder
+│   ├── benchmark_rag.py         # Embedding/RAG latency benchmark
+│   ├── prune_embedding_cache.py # Embedding cache pruning utility
 │   ├── alert_enricher.py        # Context gathering
 │   ├── ai_client.py             # LLM integration
 │   ├── wazuh_client.py          # Wazuh API client
-│   └── threat_intel.py          # Threat intelligence lookups
+│   ├── rag_retriever.py         # RAG context retrieval
+│   └── config_loader.py         # Settings loader + security checks
 ├── baselines/                   # Persisted agent baselines (auto-created)
 └── examples/
     ├── sample_alert.json        # Example alert for testing
@@ -182,37 +205,76 @@ ai-analyst/
 ### settings.yaml
 
 ```yaml
-# AI Provider Configuration
-ai_provider: "openai"  # openai, anthropic, ollama
-model: "gpt-4"
-temperature: 0.3
-max_tokens: 2000
+runtime:
+  mode: "strict"  # strict or demo
+
+ai:
+  provider: "openai"  # openai, anthropic, ollama, mock
+  openai_model: "gpt-4"
+  temperature: 0.3
+  max_tokens: 2000
 
 # Wazuh Configuration
 wazuh:
   host: "localhost"
   port: 55000
   user: "wazuh-api"
-  password_env: "WAZUH_API_PASSWORD"
+  password_env: "WAZUH_PASSWORD"
+  ssl_verify: true
 
-# Enrichment Settings
-enrichment:
-  enable_threat_intel: true
-  enable_geolocation: true
-  enable_historical: true
-  historical_hours: 24
+# API (auth required by default)
+api:
+  host: "127.0.0.1"
+  port: 8080
+  require_auth: true
+  auth_token_env: "AI_ANALYST_API_TOKEN"
 
 # Anomaly Detection
 anomaly_detection:
+  lookback_hours: 24
   z_score_threshold: 2.5
+  min_confidence: 0.6
   baseline_file: "baselines/agent_baselines.json"
   scan_interval_seconds: 300
+  categories:
+    login_anomalies: true
+    network_anomalies: true
+    process_anomalies: true
+    privilege_anomalies: true
+    file_integrity_anomalies: true
+    volume_anomalies: true
 
-# Output Settings
-output:
-  format: "terminal"  # terminal, json, markdown
-  include_raw_alert: false
-  include_recommendations: true
+rag:
+  enabled: true
+  embedding:
+    cache_dir: "~/.cache/ai-analyst/embeddings"
+    max_memory_entries: 5000
+    max_disk_files: 50000
+    max_disk_size_mb: 2048
+    prune_interval_writes: 200
+  opensearch:
+    use_ssl: true
+    verify_certs: true
+    username_env: "OPENSEARCH_USER"
+    password_env: "OPENSEARCH_PASSWORD"
+  retrieval:
+    hybrid_search: true
+    text_weight: 0.3
+    vector_weight: 0.7
+    max_temporal_alerts: 10
+    temporal_window_before: "2h"
+    temporal_window_after: "2h"
+    index_health_check: true
+```
+
+## ⚡ Performance & Cache
+
+```bash
+# Benchmark embedding + retrieval latency
+python src/benchmark_rag.py --iterations 10 --output json
+
+# Prune old/oversized embedding cache entries
+python src/prune_embedding_cache.py --max-files 20000 --max-size-mb 1024 --max-age-days 30 --output json
 ```
 
 ## 🧠 How It Works
@@ -238,8 +300,12 @@ python src/api_server.py
 
 # Analyze alert via API
 curl -X POST http://localhost:8080/analyze \
+  -H "Authorization: Bearer $AI_ANALYST_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"alert_id": "200001", "raw_alert": {...}}'
+  -d '{"alert_id": "200001"}'
+
+# Health check
+curl http://localhost:8080/health
 ```
 
 ### Wazuh Integration
@@ -258,6 +324,16 @@ Add to Wazuh's active response to auto-analyze alerts:
   <location>server</location>
   <level>10</level>
 </active-response>
+```
+
+Deploy helper script to Wazuh manager and run with least privilege:
+
+```bash
+# Copy script
+scp ai-analyze.sh wazuh@<manager>:/var/ossec/active-response/bin/ai-analyze.sh
+
+# Restrict permissions
+ssh wazuh@<manager> "chmod 750 /var/ossec/active-response/bin/ai-analyze.sh"
 ```
 
 ## 📊 Supported Alert Types

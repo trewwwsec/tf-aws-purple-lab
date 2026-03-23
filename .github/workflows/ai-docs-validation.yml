@@ -1,0 +1,32 @@
+name: AI Docs Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Minimal Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml requests
+
+      - name: Validate Documentation Links and Commands
+        run: |
+          python3 scripts/validate_docs.py
+
+      - name: Run AI Analyst Unit Tests
+        run: |
+          python3 -m unittest discover -s ai-analyst/tests -q

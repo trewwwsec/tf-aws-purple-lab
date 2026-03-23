@@ -1,6 +1,12 @@
 # AI Alert Analyst Configuration
 # Copy to settings.yaml and customize
 
+# Runtime behavior
+runtime:
+  # strict: fail closed on missing provider/Wazuh connectivity
+  # demo: allow mock fallbacks
+  mode: "strict"
+
 # AI Provider Settings
 ai:
   # Provider: openai, anthropic, or ollama
@@ -20,8 +26,10 @@ wazuh:
   host: "localhost"
   port: 55000
   user: "wazuh-api"
-  # Password should be set via WAZUH_PASSWORD env var
-  ssl_verify: false
+  # Never store secrets in plaintext in this file.
+  # The loader resolves this env var into wazuh.password at runtime.
+  password_env: "WAZUH_PASSWORD"
+  ssl_verify: true
 
 # Enrichment Settings
 enrichment:
@@ -70,10 +78,10 @@ processing:
   
   # Rule IDs to always analyze (even if below min_level)
   priority_rules:
-    - "100001"  # SSH brute force
-    - "100013"  # Mimikatz
-    - "100070"  # Shadow file access
-    - "100071"  # LSASS access
+    - "200001"  # SSH brute force
+    - "200013"  # Mimikatz
+    - "200070"  # Shadow file access
+    - "200071"  # LSASS access
   
   # Rule IDs to skip analysis
   skip_rules: []
@@ -88,15 +96,15 @@ playbooks:
     credential_theft: "credential-dumping.md"
     privilege_escalation: "privilege-escalation.md"
     persistence: "persistence.md"
-    default: "general-incident.md"
+    default: "privilege-escalation.md"
 
 # API Server Settings (for REST API mode)
 api:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 8080
-  enable_cors: true
-  require_auth: false
-  # auth_token: "set-via-env-var"
+  enable_cors: false
+  require_auth: true
+  auth_token_env: "AI_ANALYST_API_TOKEN"
 
 # Anomaly Detection Settings
 anomaly_detection:
@@ -140,15 +148,21 @@ rag:
     # Cache directory for model and embeddings
     cache_dir: "~/.cache/ai-analyst/embeddings"
 
+    # Embedding cache controls
+    max_memory_entries: 5000
+    max_disk_files: 50000
+    max_disk_size_mb: 2048
+    prune_interval_writes: 200
+
   # OpenSearch configuration for vector storage
   opensearch:
     # Connection settings (can also use env vars: OPENSEARCH_HOST, OPENSEARCH_PASSWORD)
     host: "localhost"
     port: 9200
-    username: "admin"
-    # password: "set-via-env-var"
+    username_env: "OPENSEARCH_USER"
+    password_env: "OPENSEARCH_PASSWORD"
     use_ssl: true
-    verify_certs: false
+    verify_certs: true
 
   # Retrieval configuration
   retrieval:
@@ -159,6 +173,7 @@ rag:
     max_similar_alerts: 5
     max_threat_intel: 3
     max_playbooks: 2
+    max_temporal_alerts: 10
     
     # Time range for historical context search
     # Options: "1h", "24h", "7d", "30d"
@@ -173,6 +188,13 @@ rag:
     text_weight: 0.3
     vector_weight: 0.7
 
+    # Temporal context window around the current alert timestamp
+    temporal_window_before: "2h"
+    temporal_window_after: "2h"
+
+    # Validate index health during retrieval and include it in telemetry
+    index_health_check: true
+
   # Alert indexing
   indexing:
     # Automatically index alerts for future retrieval
@@ -186,4 +208,3 @@ rag:
     
     # How far back to index historical alerts
     historical_days: 30
-

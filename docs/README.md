@@ -26,6 +26,7 @@ Project documentation for the Cloud SOC Platform.
 | Document | Description |
 |----------|-------------|
 | [macOS Endpoint Setup](macos-endpoint-setup.md) | Agent installation on macOS (local & EC2 Mac) |
+| [AI API & Active Response](AI_API_ACTIVE_RESPONSE.md) | Secure API deployment and Wazuh active-response integration |
 
 ## Related Documentation
 
@@ -36,6 +37,14 @@ Each component directory has its own README with deployment and usage details:
 - [`incident-response/README.md`](../incident-response/README.md) — IR playbooks and escalation procedures
 - [`ai-analyst/README.md`](../ai-analyst/README.md) — AI alert analyst and anomaly detection engine
 
+## Validation
+
+Run docs validation locally:
+
+```bash
+python3 scripts/validate_docs.py
+```
+
 ---
 
-**Last Updated**: 2026-02-15
+**Last Updated**: 2026-03-23

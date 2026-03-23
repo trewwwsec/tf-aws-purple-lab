@@ -8,7 +8,7 @@ import os
 import json
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 from opensearchpy import OpenSearch, helpers
 
 logger = logging.getLogger(__name__)
@@ -28,13 +28,20 @@ class VectorStore:
     INDEX_THREAT_INTEL = "soc-threat-intel-v1"
     INDEX_PLAYBOOKS = "soc-playbooks-v1"
 
+    TIME_RANGE_MAP = {
+        "1h": "now-1h",
+        "24h": "now-24h",
+        "7d": "now-7d",
+        "30d": "now-30d",
+    }
+
     def __init__(
         self,
         hosts: List[str] = None,
         username: str = None,
         password: str = None,
         use_ssl: bool = True,
-        verify_certs: bool = False,
+        verify_certs: bool = True,
         embedding_dimension: int = 384,
     ):
         """
@@ -52,8 +59,8 @@ class VectorStore:
 
         # Get connection details from environment or parameters
         self.hosts = hosts or self._get_hosts_from_env()
-        self.username = username or os.environ.get("OPENSEARCH_USER", "admin")
-        self.password = password or os.environ.get("OPENSEARCH_PASSWORD", "admin")
+        self.username = username if username is not None else os.environ.get("OPENSEARCH_USER")
+        self.password = password if password is not None else os.environ.get("OPENSEARCH_PASSWORD")
         self.use_ssl = use_ssl
         self.verify_certs = verify_certs
 
@@ -84,6 +91,38 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Failed to connect to OpenSearch: {e}")
             self.client = None
+
+    @staticmethod
+    def _parse_iso_timestamp(timestamp: str) -> Optional[datetime]:
+        """Parse common ISO timestamp strings."""
+        if not timestamp:
+            return None
+        try:
+            normalized = timestamp.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_window(window: str) -> timedelta:
+        """Parse simple duration strings like 15m, 2h, 7d."""
+        if not isinstance(window, str) or not window:
+            return timedelta(hours=1)
+
+        unit = window[-1].lower()
+        value_raw = window[:-1]
+        try:
+            value = int(value_raw)
+        except ValueError:
+            return timedelta(hours=1)
+
+        if unit == "m":
+            return timedelta(minutes=value)
+        if unit == "h":
+            return timedelta(hours=value)
+        if unit == "d":
+            return timedelta(days=value)
+        return timedelta(hours=1)
 
     def is_connected(self) -> bool:
         """Check if connected to OpenSearch."""
@@ -430,13 +469,7 @@ class VectorStore:
 
         # Time range filter
         if time_range:
-            time_map = {
-                "1h": "now-1h",
-                "24h": "now-24h",
-                "7d": "now-7d",
-                "30d": "now-30d",
-            }
-            time_query = time_map.get(time_range, f"now-{time_range}")
+            time_query = self.TIME_RANGE_MAP.get(time_range, f"now-{time_range}")
             filter_clauses.append({"range": {"timestamp": {"gte": time_query}}})
 
         # Agent filter
@@ -531,6 +564,32 @@ class VectorStore:
             logger.error(f"Failed to search threat intel: {e}")
             return []
 
+    def search_exact_threat_intel(
+        self, ioc_value: str, ioc_type: Optional[str] = None, k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Find exact threat intel matches for a specific IOC value.
+        """
+        if not self.is_connected() or not ioc_value:
+            return []
+
+        filter_clauses = [{"term": {"ioc_value": ioc_value}}]
+        if ioc_type:
+            filter_clauses.append({"term": {"ioc_type": ioc_type}})
+
+        query = {
+            "size": k,
+            "query": {"bool": {"filter": filter_clauses}},
+            "sort": [{"confidence_score": {"order": "desc"}}],
+        }
+
+        try:
+            response = self.client.search(index=self.INDEX_THREAT_INTEL, body=query)
+            return [hit["_source"] for hit in response["hits"]["hits"]]
+        except Exception as e:
+            logger.error("Failed to search exact threat intel match: %s", e)
+            return []
+
     def search_relevant_playbooks(
         self,
         embedding: List[float],
@@ -593,6 +652,10 @@ class VectorStore:
         k: int = 5,
         text_boost: float = 0.3,
         vector_boost: float = 0.7,
+        min_score: float = 0.0,
+        fields: Optional[List[str]] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        time_range: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Perform hybrid search combining text and vector similarity.
@@ -619,21 +682,68 @@ class VectorStore:
         }
         index_name = index_map.get(index, index)
 
+        default_fields = {
+            self.INDEX_ALERTS: [
+                "rule_description^2",
+                "agent_name",
+                "dstuser",
+                "src_ip",
+                "rule_id",
+                "mitre_techniques",
+            ],
+            self.INDEX_THREAT_INTEL: [
+                "ioc_value^2",
+                "threat_type",
+                "source",
+                "tags",
+            ],
+            self.INDEX_PLAYBOOKS: [
+                "title^2",
+                "description",
+                "mitre_techniques",
+                "severity",
+            ],
+        }
+        text_fields = fields or default_fields.get(
+            index_name, ["rule_description", "title", "description"]
+        )
+
+        filter_clauses = []
+        if filters:
+            for key, value in filters.items():
+                if value is None:
+                    continue
+                if isinstance(value, (list, tuple, set)):
+                    vals = [v for v in value if v is not None]
+                    if vals:
+                        filter_clauses.append({"terms": {key: vals}})
+                else:
+                    filter_clauses.append({"term": {key: value}})
+
+        if time_range and index_name == self.INDEX_ALERTS:
+            time_query = self.TIME_RANGE_MAP.get(time_range, f"now-{time_range}")
+            filter_clauses.append({"range": {"timestamp": {"gte": time_query}}})
+
+        must_query = (
+            {"multi_match": {"query": text_query, "fields": text_fields}}
+            if text_query
+            else {"match_all": {}}
+        )
+
+        wrapped_query = {"must": [must_query]}
+        if filter_clauses:
+            wrapped_query["filter"] = filter_clauses
+
         query = {
             "size": k,
             "query": {
                 "script_score": {
-                    "query": {
-                        "multi_match": {
-                            "query": text_query,
-                            "fields": ["rule_description^2", "title", "description"],
-                        }
-                    },
+                    "query": {"bool": wrapped_query},
                     "script": {
                         "source": """
                             double textScore = _score;
                             double vectorScore = cosineSimilarity(params.query_vector, 'embedding') + 1.0;
-                            return (textScore * params.text_boost) + (vectorScore * params.vector_boost * 10);
+                            return (textScore * params.text_boost) + (vectorScore * params.vector_boost);
                         """,
                         "params": {
                             "query_vector": embedding,
@@ -650,14 +760,67 @@ class VectorStore:
 
             results = []
             for hit in response["hits"]["hits"]:
+                if hit["_score"] < min_score:
+                    continue
                 result = hit["_source"]
                 result["hybrid_score"] = hit["_score"]
+                result["similarity_score"] = hit["_score"]
                 results.append(result)
 
             return results
 
         except Exception as e:
             logger.error(f"Failed to perform hybrid search: {e}")
+            return []
+
+    def search_temporal_alerts(
+        self,
+        reference_timestamp: str,
+        k: int = 10,
+        window_before: str = "2h",
+        window_after: str = "2h",
+        agent_id: Optional[str] = None,
+        src_ip: Optional[str] = None,
+        rule_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve alerts around a reference timestamp for temporal correlation.
+        """
+        if not self.is_connected():
+            return []
+
+        ref_dt = self._parse_iso_timestamp(reference_timestamp) or datetime.utcnow()
+        before = self._parse_window(window_before)
+        after = self._parse_window(window_after)
+        gte = (ref_dt - before).isoformat()
+        lte = (ref_dt + after).isoformat()
+
+        filter_clauses: List[Dict[str, Any]] = [
+            {"range": {"timestamp": {"gte": gte, "lte": lte}}}
+        ]
+        if agent_id:
+            filter_clauses.append({"term": {"agent_id": agent_id}})
+        if src_ip:
+            filter_clauses.append({"term": {"src_ip": src_ip}})
+        if rule_id:
+            filter_clauses.append({"term": {"rule_id": rule_id}})
+
+        query = {
+            "size": k,
+            "sort": [{"timestamp": {"order": "desc"}}],
+            "query": {"bool": {"filter": filter_clauses}},
+        }
+
+        try:
+            response = self.client.search(index=self.INDEX_ALERTS, body=query)
+            results = []
+            for hit in response["hits"]["hits"]:
+                item = hit["_source"]
+                item["temporal_score"] = hit.get("_score", 0.0)
+                results.append(item)
+            return results
+        except Exception as e:
+            logger.error(f"Failed to retrieve temporal alerts: {e}")
             return []
 
     def _extract_mitre_techniques(self, rule: Dict) -> List[str]:
@@ -690,16 +853,68 @@ class VectorStore:
 
         return stats
 
+    def get_index_health(self) -> Dict[str, Any]:
+        """
+        Return connection and per-index health data for runtime checks/telemetry.
+        """
+        health = {
+            "connected": self.is_connected(),
+            "cluster": {},
+            "indices": {},
+        }
+
+        if not health["connected"]:
+            health["cluster"] = {"status": "disconnected"}
+            return health
+
+        try:
+            cluster = self.client.cluster.health()
+            health["cluster"] = {
+                "status": cluster.get("status", "unknown"),
+                "number_of_nodes": cluster.get("number_of_nodes", 0),
+            }
+        except Exception as e:
+            health["cluster"] = {"status": "unknown", "error": str(e)}
+
+        for index in [self.INDEX_ALERTS, self.INDEX_THREAT_INTEL, self.INDEX_PLAYBOOKS]:
+            entry = {"exists": False, "document_count": 0}
+            try:
+                exists = self.client.indices.exists(index=index)
+                entry["exists"] = bool(exists)
+                if exists:
+                    count = self.client.count(index=index)
+                    entry["document_count"] = count.get("count", 0)
+            except Exception as e:
+                entry["error"] = str(e)
+            health["indices"][index] = entry
+
+        return health
+
 
 # Singleton instance
 _vector_store = None
 
 
-def get_vector_store(embedding_dimension: int = 384) -> VectorStore:
+def get_vector_store(
+    embedding_dimension: int = 384,
+    hosts: List[str] = None,
+    username: str = None,
+    password: str = None,
+    use_ssl: bool = True,
+    verify_certs: bool = True,
+    reset: bool = False,
+) -> VectorStore:
     """Get or create the singleton vector store instance."""
     global _vector_store
-    if _vector_store is None:
-        _vector_store = VectorStore(embedding_dimension=embedding_dimension)
+    if _vector_store is None or reset:
+        _vector_store = VectorStore(
+            hosts=hosts,
+            username=username,
+            password=password,
+            use_ssl=use_ssl,
+            verify_certs=verify_certs,
+            embedding_dimension=embedding_dimension,
+        )
     return _vector_store
 
 
@@ -714,7 +929,7 @@ if __name__ == "__main__":
     if not store.is_connected():
         print("Not connected to OpenSearch. Make sure OpenSearch is running.")
         print(
-            "For Wazuh: OPENSEARCH_HOST=localhost OPENSEARCH_PASSWORD=admin python vector_store.py"
+            "For Wazuh: OPENSEARCH_HOST=localhost OPENSEARCH_USER=<user> OPENSEARCH_PASSWORD=<password> python vector_store.py"
         )
         exit(1)
 
@@ -732,7 +947,7 @@ if __name__ == "__main__":
     test_alert = {
         "id": "test-001",
         "rule": {
-            "id": "100001",
+            "id": "200001",
             "description": "SSH brute force attack detected",
             "level": 10,
             "mitre": {"id": ["T1110"]},

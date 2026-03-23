@@ -4,11 +4,11 @@ Wazuh API Client - Handles communication with the Wazuh server.
 """
 
 import os
-import json
-import base64
 import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class WazuhClient:
@@ -29,6 +29,7 @@ class WazuhClient:
         user: str = None,
         password: str = None,
         verify_ssl: bool = None,
+        runtime_mode: str = "strict",
     ):
         """
         Initialize the Wazuh API client.
@@ -39,6 +40,7 @@ class WazuhClient:
             user: API user (default: from WAZUH_USER env var)
             password: API password (default: from WAZUH_PASSWORD env var)
             verify_ssl: Verify SSL certificates (default: True, or from WAZUH_VERIFY_SSL env var)
+            runtime_mode: Runtime mode ('strict' or 'demo')
         """
         self.host = host or os.environ.get("WAZUH_HOST", "localhost")
         self.port = port
@@ -49,6 +51,8 @@ class WazuhClient:
             if verify_ssl is not None
             else os.environ.get("WAZUH_VERIFY_SSL", "true").lower() == "true"
         )
+        self.runtime_mode = runtime_mode
+        self.allow_mock = runtime_mode == "demo"
         self.base_url = f"https://{self.host}:{self.port}"
         self.token = None
         self.token_expires = None
@@ -82,10 +86,24 @@ class WazuhClient:
                 self.token_expires = datetime.now() + timedelta(minutes=14)
                 return self.token
         except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(f"Failed to authenticate with Wazuh API: {e}")
+            if self.allow_mock:
+                logger.debug("Wazuh API authentication failed in demo mode: %s", e)
+            else:
+                logger.error(f"Failed to authenticate with Wazuh API: {e}")
 
         return None
+
+    def _ensure_token(self) -> Optional[str]:
+        """Return a token or raise in strict mode."""
+        token = self._get_token()
+        if token:
+            return token
+        if self.allow_mock:
+            return None
+        raise RuntimeError(
+            "Unable to authenticate to Wazuh API in strict mode. "
+            "Check WAZUH_HOST/WAZUH_USER/WAZUH_PASSWORD and TLS settings."
+        )
 
     def _request(
         self, method: str, endpoint: str, params: Dict = None, data: Dict = None
@@ -102,7 +120,7 @@ class WazuhClient:
         Returns:
             API response as dictionary
         """
-        token = self._get_token()
+        token = self._ensure_token()
         if not token:
             return {"error": "Unable to authenticate", "data": None}
 
@@ -123,10 +141,17 @@ class WazuhClient:
                 params=params,
                 json=data,
                 verify=self.verify_ssl,
+                timeout=30,
             )
 
-            return response.json()
+            response.raise_for_status()
+            parsed = response.json()
+            if not isinstance(parsed, dict):
+                return {"data": {}}
+            return parsed
         except Exception as e:
+            if not self.allow_mock:
+                raise RuntimeError(f"Wazuh API request failed: {e}")
             return {"error": str(e), "data": None}
 
     def get_alerts(
@@ -152,8 +177,8 @@ class WazuhClient:
         Returns:
             List of alert dictionaries
         """
-        # For demo/testing, return mock alerts
-        if not self._get_token():
+        token = self._ensure_token()
+        if not token:
             return self._get_mock_alerts(limit)
 
         params = {"limit": limit, "offset": offset}
@@ -172,13 +197,20 @@ class WazuhClient:
 
     def get_alert_by_id(self, alert_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific alert by ID."""
+        token = self._ensure_token()
+        if not token:
+            for alert in self._get_mock_alerts(limit=20):
+                if str(alert.get("id")) == str(alert_id):
+                    return alert
+            return None
         response = self._request("GET", f"/alerts/{alert_id}")
         items = response.get("data", {}).get("affected_items", [])
         return items[0] if items else None
 
     def get_agent_info(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific agent."""
-        if not self._get_token():
+        token = self._ensure_token()
+        if not token:
             return self._get_mock_agent(agent_id)
 
         response = self._request("GET", f"/agents/{agent_id}")
@@ -187,7 +219,8 @@ class WazuhClient:
 
     def get_agents(self, status: str = None) -> List[Dict[str, Any]]:
         """Get list of agents."""
-        if not self._get_token():
+        token = self._ensure_token()
+        if not token:
             return self._get_mock_agents()
 
         params = {}
@@ -218,7 +251,8 @@ class WazuhClient:
         Returns:
             List of matching events
         """
-        if not self._get_token():
+        token = self._ensure_token()
+        if not token:
             return self._get_mock_events(source_ip, user)
 
         # Build query
@@ -246,7 +280,7 @@ class WazuhClient:
                 "id": "1",
                 "timestamp": (now - timedelta(minutes=5)).isoformat(),
                 "rule": {
-                    "id": "100001",
+                    "id": "200001",
                     "level": 10,
                     "description": "SSH brute force attack detected",
                     "mitre": {"id": ["T1110"]},
@@ -258,7 +292,7 @@ class WazuhClient:
                 "id": "2",
                 "timestamp": (now - timedelta(minutes=10)).isoformat(),
                 "rule": {
-                    "id": "100010",
+                    "id": "200010",
                     "level": 12,
                     "description": "PowerShell encoded command detected",
                     "mitre": {"id": ["T1059.001"]},
@@ -270,7 +304,7 @@ class WazuhClient:
                 "id": "3",
                 "timestamp": (now - timedelta(minutes=15)).isoformat(),
                 "rule": {
-                    "id": "100021",
+                    "id": "200021",
                     "level": 10,
                     "description": "Sudo abuse - shell escalation",
                     "mitre": {"id": ["T1548.003"]},
