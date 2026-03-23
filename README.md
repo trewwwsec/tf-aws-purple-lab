@@ -9,7 +9,7 @@
 [![macOS](https://img.shields.io/badge/macOS-Supported-lightgrey?style=for-the-badge&logo=apple)](detections/04-macos-attacks.md)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-> **A production-ready Cloud Security Operations Center (SOC) built with Infrastructure as Code, featuring 2,226+ detection rules across Windows, Linux, and macOS. Includes custom rules + SOCFortress community rules with 466+ MITRE ATT&CK techniques mapped, AI-powered alert analysis, multi-victim APT29 kill chain simulation across Linux/macOS/Windows, and comprehensive incident response playbooks.**
+> **A production-ready Security Operations Center (SOC) built with Infrastructure as Code, featuring 2,226+ detection rules across Windows, Linux, and macOS. Includes custom rules + SOCFortress community rules with 466+ MITRE ATT&CK techniques mapped, AI-powered alert analysis, multi-victim APT29 kill chain simulation across Linux/macOS/Windows, and comprehensive incident response playbooks.**
 
 ---
 
