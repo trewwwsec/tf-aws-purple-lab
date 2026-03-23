@@ -194,8 +194,10 @@ class GeoIPClient:
 class HistoricalAnalyzer:
     """Analyzes historical events for pattern detection."""
 
-    def __init__(self, wazuh_client=None):
+    def __init__(self, wazuh_client=None, runtime_mode: str = "strict"):
         self.wazuh_client = wazuh_client
+        self.runtime_mode = runtime_mode
+        self.allow_mock = runtime_mode == "demo"
 
     def get_related_events(
         self,
@@ -216,8 +218,50 @@ class HistoricalAnalyzer:
         Returns:
             Historical event analysis
         """
-        # In production, this would query Wazuh API
-        # For now, return mock data
+        if self.wazuh_client:
+            try:
+                events = self.wazuh_client.search_events(
+                    source_ip=source_ip, user=user, time_range=f"{hours}h"
+                )
+                if events:
+                    timestamps = [e.get("timestamp") for e in events if e.get("timestamp")]
+                    first_seen = min(timestamps) if timestamps else None
+                    last_seen = max(timestamps) if timestamps else None
+                    unique_rules = len(
+                        {
+                            str(e.get("rule", {}).get("id"))
+                            for e in events
+                            if e.get("rule", {}).get("id") is not None
+                        }
+                    )
+                    return {
+                        "total_events": len(events),
+                        "unique_rules": unique_rules,
+                        "first_seen": first_seen,
+                        "last_seen": last_seen,
+                        "event_timeline": [],
+                        "related_sources": [{"ip": source_ip, "count": len(events)}]
+                        if source_ip
+                        else [],
+                        "attack_progression": "Historical correlation from live Wazuh events",
+                    }
+
+                if not self.allow_mock:
+                    return {
+                        "total_events": 0,
+                        "unique_rules": 0,
+                        "first_seen": None,
+                        "last_seen": None,
+                        "event_timeline": [],
+                        "related_sources": [],
+                        "attack_progression": "No related events found in live Wazuh data",
+                    }
+            except Exception as e:
+                if not self.allow_mock:
+                    raise
+                logger.warning("Historical query failed, using mock data: %s", e)
+
+        # Demo-mode fallback
         return {
             "total_events": 47,
             "unique_rules": 3,
@@ -248,10 +292,20 @@ class AlertEnricher:
     Combines threat intelligence, geolocation, historical analysis, and RAG indexing.
     """
 
-    def __init__(self, enable_rag_indexing: bool = True):
+    def __init__(
+        self,
+        enable_rag_indexing: bool = True,
+        config: Dict[str, Any] = None,
+        runtime_mode: str = "strict",
+        wazuh_client=None,
+    ):
+        self.config = config or {}
+        self.runtime_mode = runtime_mode
         self.threat_intel = ThreatIntelligenceClient()
         self.geoip = GeoIPClient()
-        self.history = HistoricalAnalyzer()
+        self.history = HistoricalAnalyzer(
+            wazuh_client=wazuh_client, runtime_mode=runtime_mode
+        )
 
         # RAG indexing
         self.enable_rag_indexing = enable_rag_indexing and RAG_AVAILABLE
@@ -260,9 +314,35 @@ class AlertEnricher:
 
         if self.enable_rag_indexing:
             try:
-                self._embedding_service = get_embedding_service()
+                rag_cfg = self.config.get("rag", {}) if isinstance(self.config, dict) else {}
+                embedding_cfg = (
+                    rag_cfg.get("embedding", {}) if isinstance(rag_cfg, dict) else {}
+                )
+                opensearch_cfg = (
+                    rag_cfg.get("opensearch", {}) if isinstance(rag_cfg, dict) else {}
+                )
+
+                self._embedding_service = get_embedding_service(
+                    model_name=embedding_cfg.get("model"),
+                    cache_dir=embedding_cfg.get("cache_dir"),
+                    max_memory_entries=embedding_cfg.get("max_memory_entries", 5000),
+                    max_disk_files=embedding_cfg.get("max_disk_files", 50000),
+                    max_disk_size_mb=embedding_cfg.get("max_disk_size_mb", 2048),
+                    prune_interval_writes=embedding_cfg.get("prune_interval_writes", 200),
+                    reset=True,
+                )
+                os_host = opensearch_cfg.get("host")
+                os_port = opensearch_cfg.get("port")
+                os_hosts = [f"{os_host}:{os_port}"] if os_host and os_port else None
                 self._vector_store = get_vector_store(
-                    embedding_dimension=self._embedding_service.dimension
+                    embedding_dimension=self._embedding_service.dimension,
+                    hosts=os_hosts,
+                    username=opensearch_cfg.get("username"),
+                    password=opensearch_cfg.get("password")
+                    or os.environ.get("OPENSEARCH_PASSWORD"),
+                    use_ssl=opensearch_cfg.get("use_ssl", True),
+                    verify_certs=opensearch_cfg.get("verify_certs", True),
+                    reset=True,
                 )
                 logger.info("RAG indexing enabled for alert enrichment")
             except Exception as e:
@@ -344,7 +424,14 @@ class AlertEnricher:
         """
         # Minimum severity threshold
         severity = alert.get("rule", {}).get("level", 0)
-        if severity < 5:  # Only index alerts with level >= 5
+        min_level = (
+            self.config.get("rag", {})
+            .get("indexing", {})
+            .get("min_level", 5)
+            if isinstance(self.config, dict)
+            else 5
+        )
+        if severity < min_level:  # Only index alerts at configured minimum level
             return False
 
         # Check if OpenSearch is connected

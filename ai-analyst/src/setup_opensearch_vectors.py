@@ -14,23 +14,36 @@ Usage:
 Environment Variables:
     OPENSEARCH_HOST: OpenSearch hostname (default: localhost)
     OPENSEARCH_PORT: OpenSearch port (default: 9200)
-    OPENSEARCH_USER: Username (default: admin)
-    OPENSEARCH_PASSWORD: Password (required)
+    OPENSEARCH_USER: Username (required when auth enabled)
+    OPENSEARCH_PASSWORD: Password (required when auth enabled)
 """
 
 import os
 import sys
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.vector_store import VectorStore
-from src.embedding_service import EmbeddingService
-from src.wazuh_client import WazuhClient
+_IMPORT_ERROR = None
+try:
+    from src.vector_store import VectorStore
+    from src.embedding_service import EmbeddingService
+    from src.wazuh_client import WazuhClient
+    from src.config_loader import (
+        enforce_security_posture,
+        load_settings,
+        resolve_runtime_mode,
+    )
+except Exception as import_error:  # pragma: no cover - environment-dependent
+    VectorStore = Any
+    EmbeddingService = Any
+    WazuhClient = Any
+    _IMPORT_ERROR = import_error
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -287,48 +300,38 @@ def index_historical_alerts(
         logger.warning("Wazuh client not available, skipping historical alerts")
         return 0
 
-    # This would fetch real alerts from Wazuh API
-    # For now, create some sample alerts for demonstration
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    q = f"timestamp>{cutoff.isoformat()}Z"
+    historical_alerts = []
+    offset = 0
 
-    sample_alerts = [
-        {
-            "id": "historical-001",
-            "rule": {
-                "id": "100001",
-                "description": "SSH brute force attack detected",
-                "level": 10,
-                "mitre": {"id": ["T1110"]},
-            },
-            "agent": {"id": "001", "name": "linux-endpoint-01"},
-            "data": {"srcip": "203.0.113.45", "dstuser": "root"},
-            "timestamp": datetime.now().isoformat(),
-        },
-        {
-            "id": "historical-002",
-            "rule": {
-                "id": "100021",
-                "description": "Sudo abuse - shell escalation",
-                "level": 10,
-                "mitre": {"id": ["T1548.003"]},
-            },
-            "agent": {"id": "001", "name": "linux-endpoint-01"},
-            "data": {"dstuser": "developer", "command": "sudo bash"},
-            "timestamp": datetime.now().isoformat(),
-        },
-    ]
+    while True:
+        batch = wazuh_client.get_alerts(limit=batch_size, offset=offset, q=q)
+        if not batch:
+            break
+        historical_alerts.extend(batch)
+        if len(batch) < batch_size:
+            break
+        offset += len(batch)
+
+    if not historical_alerts:
+        logger.info("No historical alerts returned by Wazuh for the requested period")
+        return 0
+
+    logger.info(f"Fetched {len(historical_alerts)} alerts from Wazuh")
 
     indexed_count = 0
 
-    for alert in sample_alerts:
+    for alert in historical_alerts:
         try:
             embedding = embedding_service.embed_alert(alert)
             success = vector_store.index_alert(alert, embedding)
 
             if success:
                 indexed_count += 1
-                logger.info(f"  ✓ Indexed alert {alert['id']}")
+                logger.info(f"  ✓ Indexed alert {alert.get('id', '<unknown>')}")
         except Exception as e:
-            logger.error(f"  ✗ Error indexing alert {alert['id']}: {e}")
+            logger.error(f"  ✗ Error indexing alert {alert.get('id', '<unknown>')}: {e}")
 
     logger.info(f"Indexed {indexed_count} historical alerts")
     return indexed_count
@@ -337,6 +340,18 @@ def index_historical_alerts(
 def main():
     parser = argparse.ArgumentParser(
         description="Setup OpenSearch vector indices for RAG"
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to settings.yaml (default: ai-analyst/config/settings.yaml)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["strict", "demo"],
+        default=None,
+        help="Runtime mode (strict fails closed, demo allows relaxed fallbacks)",
     )
     parser.add_argument(
         "--index-playbooks",
@@ -360,6 +375,31 @@ def main():
     )
 
     args = parser.parse_args()
+    if _IMPORT_ERROR is not None:
+        logger.error("Missing dependency for setup_opensearch_vectors: %s", _IMPORT_ERROR)
+        logger.error("Install requirements: pip install -r ai-analyst/requirements.txt")
+        return 1
+
+    settings = load_settings(args.config)
+    runtime_mode = resolve_runtime_mode(
+        settings=settings, cli_mode=args.mode, demo_flag=False
+    )
+    try:
+        warnings = enforce_security_posture(settings, runtime_mode=runtime_mode)
+    except ValueError as e:
+        logger.error("Security configuration error: %s", e)
+        return 1
+    for warning in warnings:
+        logger.warning("Security warning: %s", warning)
+
+    rag_cfg = settings.get("rag", {}) if isinstance(settings, dict) else {}
+    embedding_cfg = (
+        rag_cfg.get("embedding", {}) if isinstance(rag_cfg, dict) else {}
+    )
+    opensearch_cfg = (
+        rag_cfg.get("opensearch", {}) if isinstance(rag_cfg, dict) else {}
+    )
+    wazuh_cfg = settings.get("wazuh", {}) if isinstance(settings, dict) else {}
 
     # If --all is specified, enable all indexing options
     if args.all:
@@ -376,7 +416,14 @@ def main():
     logger.info("Initializing services...")
 
     try:
-        embedding_service = EmbeddingService()
+        embedding_service = EmbeddingService(
+            model_name=embedding_cfg.get("model"),
+            cache_dir=embedding_cfg.get("cache_dir"),
+            max_memory_entries=embedding_cfg.get("max_memory_entries", 5000),
+            max_disk_files=embedding_cfg.get("max_disk_files", 50000),
+            max_disk_size_mb=embedding_cfg.get("max_disk_size_mb", 2048),
+            prune_interval_writes=embedding_cfg.get("prune_interval_writes", 200),
+        )
         logger.info(
             f"✓ Embedding service initialized (dimension: {embedding_service.dimension})"
         )
@@ -385,7 +432,18 @@ def main():
         return 1
 
     try:
-        vector_store = VectorStore(embedding_dimension=embedding_service.dimension)
+        os_host = opensearch_cfg.get("host")
+        os_port = opensearch_cfg.get("port")
+        hosts = [f"{os_host}:{os_port}"] if os_host and os_port else None
+        vector_store = VectorStore(
+            embedding_dimension=embedding_service.dimension,
+            hosts=hosts,
+            username=opensearch_cfg.get("username"),
+            password=opensearch_cfg.get("password")
+            or os.environ.get("OPENSEARCH_PASSWORD"),
+            use_ssl=opensearch_cfg.get("use_ssl", True),
+            verify_certs=opensearch_cfg.get("verify_certs", True),
+        )
 
         if not vector_store.is_connected():
             logger.error("✗ Failed to connect to OpenSearch")
@@ -393,7 +451,7 @@ def main():
                 "  Make sure OpenSearch is running and credentials are correct"
             )
             logger.error(
-                "  Set OPENSEARCH_HOST and OPENSEARCH_PASSWORD environment variables"
+                "  Set OPENSEARCH_HOST, OPENSEARCH_USER, and OPENSEARCH_PASSWORD environment variables"
             )
             return 1
 
@@ -420,7 +478,14 @@ def main():
 
     if args.index_alerts:
         print()
-        wazuh_client = WazuhClient()
+        wazuh_client = WazuhClient(
+            host=wazuh_cfg.get("host"),
+            port=wazuh_cfg.get("port", 55000),
+            user=wazuh_cfg.get("user"),
+            password=wazuh_cfg.get("password"),
+            verify_ssl=wazuh_cfg.get("ssl_verify", True),
+            runtime_mode=runtime_mode,
+        )
         results["alerts"] = index_historical_alerts(
             vector_store, embedding_service, wazuh_client, days=args.days
         )

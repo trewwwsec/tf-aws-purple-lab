@@ -12,7 +12,7 @@ Orchestrates the detection pipeline:
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from ai_client import AIClient
@@ -56,6 +56,18 @@ CATEGORY_MITRE_MAP = {
 }
 
 
+CATEGORY_TOGGLE_MAP = {
+    "login_anomaly": "login_anomalies",
+    "process_anomaly": "process_anomalies",
+    "network_anomaly": "network_anomalies",
+    "beacon_anomaly": "network_anomalies",
+    "dns_exfil_anomaly": "network_anomalies",
+    "privilege_anomaly": "privilege_anomalies",
+    "file_integrity_anomaly": "file_integrity_anomalies",
+    "volume_anomaly": "volume_anomalies",
+}
+
+
 class AnomalyDetector:
     """
     Proactive anomaly detection engine.
@@ -69,12 +81,32 @@ class AnomalyDetector:
         z_score_threshold: float = 2.5,
         min_confidence: float = 0.6,
         baseline_path: Optional[str] = None,
+        config: Dict[str, Any] = None,
+        runtime_mode: str = "strict",
     ):
+        self.config = config or {}
+        self.runtime_mode = runtime_mode
         self.z_score_threshold = z_score_threshold
         self.min_confidence = min_confidence
         self.baseline_path = baseline_path
         self.engine = BaselineEngine(z_score_threshold=z_score_threshold)
-        self.ai_client = AIClient()
+        self.ai_client = AIClient(config=self.config, runtime_mode=runtime_mode)
+        anomaly_cfg = self.config.get("anomaly_detection", {}) if isinstance(self.config, dict) else {}
+        self.category_toggles = (
+            anomaly_cfg.get("categories", {})
+            if isinstance(anomaly_cfg.get("categories", {}), dict)
+            else {}
+        )
+
+        wazuh_cfg = self.config.get("wazuh", {}) if isinstance(self.config, dict) else {}
+        self.wazuh_client = WazuhClient(
+            host=wazuh_cfg.get("host"),
+            port=wazuh_cfg.get("port", 55000),
+            user=wazuh_cfg.get("user"),
+            password=wazuh_cfg.get("password"),
+            verify_ssl=wazuh_cfg.get("ssl_verify", True),
+            runtime_mode=runtime_mode,
+        )
 
     def run_demo(self) -> Dict[str, Any]:
         """
@@ -108,12 +140,11 @@ class AnomalyDetector:
             logger.warning("No baseline file found. Building baseline from current data.")
 
         # Fetch events from Wazuh
-        wazuh = WazuhClient()
-        events = wazuh.get_alerts(limit=1000)
+        events = self._fetch_events(lookback_hours=lookback_hours)
 
         if not events:
             return {
-                "scan_time": datetime.utcnow().isoformat(),
+                "scan_time": datetime.now(timezone.utc).isoformat(),
                 "status": "no_events",
                 "message": "No events found in the specified time window",
                 "findings": [],
@@ -126,7 +157,7 @@ class AnomalyDetector:
             if self.baseline_path:
                 self.engine.save(self.baseline_path)
             return {
-                "scan_time": datetime.utcnow().isoformat(),
+                "scan_time": datetime.now(timezone.utc).isoformat(),
                 "status": "baseline_built",
                 "message": f"Initial baseline built from {len(events)} events across {len(self.engine.baselines)} agents. Run again to detect anomalies.",
                 "findings": [],
@@ -144,10 +175,11 @@ class AnomalyDetector:
 
     def _run_pipeline(self, events: List[Dict]) -> Dict[str, Any]:
         """Core detection pipeline."""
-        scan_time = datetime.utcnow().isoformat()
+        scan_time = datetime.now(timezone.utc).isoformat()
 
         # Step 1: Check events against baselines
         deviations = self.engine.check_events(events)
+        deviations = self._filter_deviations_by_category(deviations)
 
         if not deviations:
             return {
@@ -164,6 +196,25 @@ class AnomalyDetector:
 
         # Step 3: Send to AI for reasoning
         ai_analysis = self._ai_analyze(enriched)
+        ai_analysis = self._apply_min_confidence_filter(ai_analysis)
+
+        findings = ai_analysis.get("findings", [])
+        if not findings:
+            dropped = ai_analysis.get("filtered_out_low_confidence", 0)
+            return {
+                "scan_time": scan_time,
+                "status": "clean",
+                "events_analyzed": len(events),
+                "agents_checked": len(self.engine.baselines),
+                "deviations_found": len(deviations),
+                "raw_deviations": enriched,
+                "ai_analysis": ai_analysis,
+                "analysis_metadata": self.ai_client.get_status(),
+                "message": (
+                    "Deviations detected, but all findings were below min_confidence "
+                    f"({self.min_confidence:.2f}). Filtered: {dropped}"
+                ),
+            }
 
         # Step 4: Build final result
         return {
@@ -174,7 +225,85 @@ class AnomalyDetector:
             "deviations_found": len(deviations),
             "raw_deviations": enriched,
             "ai_analysis": ai_analysis,
+            "analysis_metadata": self.ai_client.get_status(),
         }
+
+    @staticmethod
+    def _parse_timestamp(ts: str) -> Optional[datetime]:
+        """Parse common ISO timestamp formats into naive UTC datetime."""
+        if not ts or not isinstance(ts, str):
+            return None
+        try:
+            normalized = ts.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(normalized)
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+        except ValueError:
+            return None
+
+    def _fetch_events(self, lookback_hours: int, limit: int = 2000) -> List[Dict[str, Any]]:
+        """
+        Fetch events from Wazuh and enforce lookback filtering in client-side path.
+        """
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=lookback_hours)
+        q = f"timestamp>{cutoff.isoformat()}Z"
+        events = self.wazuh_client.get_alerts(limit=limit, q=q)
+
+        filtered: List[Dict[str, Any]] = []
+        for event in events:
+            ts = self._parse_timestamp(event.get("timestamp", ""))
+            if ts is None or ts >= cutoff:
+                filtered.append(event)
+        return filtered
+
+    def _is_category_enabled(self, category: str) -> bool:
+        toggle_key = CATEGORY_TOGGLE_MAP.get(category)
+        if not toggle_key:
+            return True
+        return bool(self.category_toggles.get(toggle_key, True))
+
+    def _filter_deviations_by_category(self, deviations: List[Dict]) -> List[Dict]:
+        """Drop deviations from disabled detector families."""
+        return [d for d in deviations if self._is_category_enabled(d.get("category", ""))]
+
+    @staticmethod
+    def _severity_rank(severity: str) -> int:
+        ranks = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
+        return ranks.get((severity or "").upper(), 0)
+
+    def _apply_min_confidence_filter(self, ai_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Enforce min confidence threshold on AI findings.
+        """
+        findings = ai_analysis.get("findings", [])
+        if not isinstance(findings, list):
+            ai_analysis["findings"] = []
+            ai_analysis["filtered_out_low_confidence"] = 0
+            return ai_analysis
+
+        kept = []
+        dropped = 0
+        for finding in findings:
+            try:
+                confidence = float(finding.get("confidence", 0.0))
+            except (TypeError, ValueError):
+                confidence = 0.0
+            if confidence >= self.min_confidence:
+                kept.append(finding)
+            else:
+                dropped += 1
+
+        ai_analysis["findings"] = kept
+        ai_analysis["filtered_out_low_confidence"] = dropped
+
+        if kept:
+            top = max(kept, key=lambda f: self._severity_rank(f.get("severity", "")))
+            ai_analysis["risk_level"] = top.get("severity", ai_analysis.get("risk_level", "LOW"))
+        else:
+            ai_analysis["risk_level"] = "LOW"
+
+        return ai_analysis
 
     def _enrich_deviations(self, deviations: List[Dict]) -> List[Dict]:
         """Add MITRE ATT&CK context to deviations."""
@@ -242,6 +371,9 @@ class AnomalyDetector:
 
                 # Validate the response has the expected anomaly analysis schema
                 if "findings" in parsed and "risk_level" in parsed:
+                    parsed.setdefault(
+                        "analysis_method", f"llm:{self.ai_client.get_status()['provider']}"
+                    )
                     return parsed
                 else:
                     logger.info("AI response has unexpected schema, using fallback")
@@ -251,6 +383,8 @@ class AnomalyDetector:
                 return self._fallback_analysis(deviations)
 
         except Exception as e:
+            if self.runtime_mode == "strict":
+                raise
             logger.warning("AI analysis failed (%s), using rule-based fallback", e)
             return self._fallback_analysis(deviations)
 

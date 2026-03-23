@@ -6,15 +6,15 @@ Supports OpenAI, Anthropic Claude, and local Ollama.
 Now with RAG (Retrieval-Augmented Generation) integration for enhanced context.
 """
 
-import os
 import json
 import logging
-from typing import Dict, Any, Optional, List
+import os
 from abc import ABC, abstractmethod
+from typing import Any, Dict
 
 # RAG Integration
 try:
-    from rag_retriever import get_rag_retriever, RAGRetriever
+    from rag_retriever import get_rag_retriever
 
     RAG_AVAILABLE = True
 except ImportError:
@@ -26,17 +26,15 @@ logger = logging.getLogger(__name__)
 class BaseLLMClient(ABC):
     """Abstract base class for LLM clients."""
 
+    def __init__(self, strict_mode: bool = False):
+        self.strict_mode = strict_mode
+
     @abstractmethod
     def generate(self, prompt: str, system_prompt: str = None) -> str:
         """Generate a response from the LLM."""
-        pass
 
     def _mock_response(self, prompt: str = "") -> str:
-        """
-        Return a mock response when the LLM API is not available.
-
-        This default implementation can be overridden by subclasses.
-        """
+        """Return a mock response when the LLM API is not available."""
         return json.dumps(
             {
                 "title": "Security Alert Detected",
@@ -55,26 +53,49 @@ class BaseLLMClient(ABC):
         )
 
 
+class MockLLMClient(BaseLLMClient):
+    """Deterministic mock client for demo mode."""
+
+    def generate(self, prompt: str, system_prompt: str = None) -> str:
+        return self._mock_response(prompt)
+
+
 class OpenAIClient(BaseLLMClient):
     """OpenAI API client."""
 
-    def __init__(self, model: str = "gpt-4", temperature: float = 0.3):
+    def __init__(
+        self,
+        model: str = "gpt-4",
+        temperature: float = 0.3,
+        max_tokens: int = 2000,
+        strict_mode: bool = False,
+    ):
+        super().__init__(strict_mode=strict_mode)
         self.model = model
         self.temperature = temperature
+        self.max_tokens = max_tokens
         self.api_key = os.environ.get("OPENAI_API_KEY")
+        self.client = None
 
-        if self.api_key:
-            try:
-                import openai
+        if not self.api_key:
+            if self.strict_mode:
+                raise RuntimeError("OPENAI_API_KEY is required in strict mode")
+            return
 
-                self.client = openai.OpenAI(api_key=self.api_key)
-            except ImportError:
-                self.client = None
-        else:
-            self.client = None
+        try:
+            import openai
+
+            self.client = openai.OpenAI(api_key=self.api_key)
+        except ImportError:
+            if self.strict_mode:
+                raise RuntimeError(
+                    "openai package is required for OpenAI provider in strict mode"
+                )
 
     def generate(self, prompt: str, system_prompt: str = None) -> str:
         if not self.client:
+            if self.strict_mode:
+                raise RuntimeError("OpenAI client is unavailable")
             return self._mock_response(prompt)
 
         messages = []
@@ -82,49 +103,85 @@ class OpenAIClient(BaseLLMClient):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat.completions.create(
-            model=self.model, messages=messages, temperature=self.temperature
-        )
-        return response.choices[0].message.content
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            if self.strict_mode:
+                raise RuntimeError(f"OpenAI request failed: {e}")
+            logger.warning("OpenAI request failed, using mock response: %s", e)
+            return self._mock_response(prompt)
 
 
 class AnthropicClient(BaseLLMClient):
     """Anthropic Claude API client."""
 
     def __init__(
-        self, model: str = "claude-3-sonnet-20240229", temperature: float = 0.3
+        self,
+        model: str = "claude-3-sonnet-20240229",
+        temperature: float = 0.3,
+        max_tokens: int = 2000,
+        strict_mode: bool = False,
     ):
+        super().__init__(strict_mode=strict_mode)
         self.model = model
         self.temperature = temperature
+        self.max_tokens = max_tokens
         self.api_key = os.environ.get("ANTHROPIC_API_KEY")
+        self.client = None
 
-        if self.api_key:
-            try:
-                import anthropic
+        if not self.api_key:
+            if self.strict_mode:
+                raise RuntimeError("ANTHROPIC_API_KEY is required in strict mode")
+            return
 
-                self.client = anthropic.Anthropic(api_key=self.api_key)
-            except ImportError:
-                self.client = None
-        else:
-            self.client = None
+        try:
+            import anthropic
+
+            self.client = anthropic.Anthropic(api_key=self.api_key)
+        except ImportError:
+            if self.strict_mode:
+                raise RuntimeError(
+                    "anthropic package is required for Anthropic provider in strict mode"
+                )
 
     def generate(self, prompt: str, system_prompt: str = None) -> str:
         if not self.client:
+            if self.strict_mode:
+                raise RuntimeError("Anthropic client is unavailable")
             return self._mock_response(prompt)
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=2000,
-            system=system_prompt or "You are a security analyst assistant.",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.content[0].text
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=system_prompt or "You are a security analyst assistant.",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+            )
+            return response.content[0].text
+        except Exception as e:
+            if self.strict_mode:
+                raise RuntimeError(f"Anthropic request failed: {e}")
+            logger.warning("Anthropic request failed, using mock response: %s", e)
+            return self._mock_response(prompt)
 
 
 class OllamaClient(BaseLLMClient):
     """Local Ollama client for running models locally."""
 
-    def __init__(self, model: str = "llama2", host: str = "http://localhost:11434"):
+    def __init__(
+        self,
+        model: str = "llama2",
+        host: str = "http://localhost:11434",
+        strict_mode: bool = False,
+    ):
+        super().__init__(strict_mode=strict_mode)
         self.model = model
         self.host = host
 
@@ -139,68 +196,122 @@ class OllamaClient(BaseLLMClient):
             response = requests.post(
                 f"{self.host}/api/generate",
                 json={"model": self.model, "prompt": full_prompt, "stream": False},
+                timeout=30,
             )
+            response.raise_for_status()
             return response.json().get("response", "")
-        except Exception:
+        except Exception as e:
+            if self.strict_mode:
+                raise RuntimeError(f"Ollama request failed: {e}")
+            logger.warning("Ollama request failed, using mock response: %s", e)
             return self._mock_response(prompt)
 
 
 class AIClient:
     """
     Main AI client that handles LLM interactions for alert analysis.
-    Automatically selects the appropriate provider based on available API keys.
 
     Features RAG (Retrieval-Augmented Generation) for enhanced context from
     historical alerts, threat intelligence, and playbooks.
     """
 
-    def __init__(self, provider: str = None, use_rag: bool = True):
-        """
-        Initialize the AI client.
+    VALID_PROVIDERS = {"openai", "anthropic", "ollama", "mock"}
 
-        Args:
-            provider: Force a specific provider ('openai', 'anthropic', 'ollama')
-                     If None, auto-detect based on available API keys.
-            use_rag: Enable RAG context retrieval (default: True)
-        """
-        self.provider = provider or self._detect_provider()
+    def __init__(
+        self,
+        provider: str = None,
+        use_rag: bool = True,
+        config: Dict[str, Any] = None,
+        runtime_mode: str = "strict",
+    ):
+        self.config = config or {}
+        self.runtime_mode = runtime_mode
+        self.strict_mode = runtime_mode == "strict"
+        self.allow_fallback = not self.strict_mode
+
+        ai_cfg = self.config.get("ai", {}) if isinstance(self.config, dict) else {}
+        self.temperature = ai_cfg.get("temperature", 0.3)
+        self.max_tokens = ai_cfg.get("max_tokens", 2000)
+
+        self.provider = self._detect_provider(provider)
         self.client = self._create_client()
+        self.client_uses_mock = isinstance(self.client, MockLLMClient) or (
+            hasattr(self.client, "client") and getattr(self.client, "client") is None
+        )
         self.system_prompt = self._load_system_prompt()
 
+        self.fallback_used = False
+        self.last_error = None
+
+        rag_cfg = self.config.get("rag", {}) if isinstance(self.config, dict) else {}
+        rag_enabled = rag_cfg.get("enabled", True)
+
         # Initialize RAG retriever if available
-        self.use_rag = use_rag and RAG_AVAILABLE
+        self.use_rag = use_rag and rag_enabled and RAG_AVAILABLE
         self.rag_retriever = None
         if self.use_rag:
             try:
-                self.rag_retriever = get_rag_retriever()
+                self.rag_retriever = get_rag_retriever(config=self.config, reset=True)
                 logger.info("RAG retriever initialized")
             except Exception as e:
-                logger.warning(f"Failed to initialize RAG retriever: {e}")
+                if self.strict_mode:
+                    raise
+                logger.warning("Failed to initialize RAG retriever: %s", e)
                 self.use_rag = False
 
-    def _detect_provider(self) -> str:
-        """Auto-detect which LLM provider to use."""
+    def _detect_provider(self, provider: str = None) -> str:
+        """Resolve the active provider from explicit arg, config, or env."""
+        configured = provider
+        if not configured:
+            ai_cfg = self.config.get("ai", {}) if isinstance(self.config, dict) else {}
+            configured = ai_cfg.get("provider")
+
+        if configured:
+            configured = configured.strip().lower()
+            if configured in self.VALID_PROVIDERS:
+                return configured
+
         if os.environ.get("OPENAI_API_KEY"):
             return "openai"
-        elif os.environ.get("ANTHROPIC_API_KEY"):
+        if os.environ.get("ANTHROPIC_API_KEY"):
             return "anthropic"
-        else:
-            return "mock"  # Fall back to mock responses
+        if self.allow_fallback:
+            return "mock"
+
+        raise RuntimeError(
+            "No AI provider could be resolved in strict mode. "
+            "Set ai.provider in settings.yaml and required credentials."
+        )
 
     def _create_client(self) -> BaseLLMClient:
         """Create the appropriate LLM client."""
+        ai_cfg = self.config.get("ai", {}) if isinstance(self.config, dict) else {}
+
         if self.provider == "openai":
-            return OpenAIClient()
-        elif self.provider == "anthropic":
-            return AnthropicClient()
-        elif self.provider == "ollama":
-            return OllamaClient()
-        else:
-            return OpenAIClient()  # Will use mock responses
+            return OpenAIClient(
+                model=ai_cfg.get("openai_model", "gpt-4"),
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                strict_mode=self.strict_mode,
+            )
+        if self.provider == "anthropic":
+            return AnthropicClient(
+                model=ai_cfg.get("anthropic_model", "claude-3-sonnet-20240229"),
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                strict_mode=self.strict_mode,
+            )
+        if self.provider == "ollama":
+            return OllamaClient(
+                model=ai_cfg.get("ollama_model", "llama2"),
+                host=ai_cfg.get("ollama_host", "http://localhost:11434"),
+                strict_mode=self.strict_mode,
+            )
+        return MockLLMClient(strict_mode=self.strict_mode)
 
     def _load_system_prompt(self) -> str:
         """Load the system prompt for alert analysis."""
-        return """You are an expert Security Operations Center (SOC) analyst assistant. 
+        return """You are an expert Security Operations Center (SOC) analyst assistant.
 Your role is to analyze security alerts and provide:
 1. A clear, meaningful title for the alert
 2. A concise summary of what happened (2-3 sentences)
@@ -229,20 +340,11 @@ Format your response as JSON with these keys:
     ) -> Dict[str, Any]:
         """
         Analyze a security alert and return structured analysis.
-
-        Args:
-            alert: The raw Wazuh alert
-            context: Additional context (related events, threat intel, etc.)
-            mitre_info: MITRE ATT&CK technique information
-            use_rag: Override RAG usage for this analysis (default: use instance setting)
-
-        Returns:
-            Dictionary with title, summary, investigation_steps, recommended_actions
         """
-        # Determine if we should use RAG for this analysis
-        should_use_rag = (
-            self.use_rag if use_rag is None else (use_rag and RAG_AVAILABLE)
-        )
+        self.fallback_used = False
+        self.last_error = None
+
+        should_use_rag = self.use_rag if use_rag is None else (use_rag and RAG_AVAILABLE)
 
         # Retrieve RAG context if enabled
         rag_context = None
@@ -251,21 +353,21 @@ Format your response as JSON with these keys:
                 logger.info("Retrieving RAG context for alert analysis...")
                 rag_context = self.rag_retriever.retrieve_context(alert)
                 logger.info(
-                    f"RAG context retrieved: {rag_context.total_documents} documents"
+                    "RAG context retrieved: %d documents", rag_context.total_documents
                 )
             except Exception as e:
-                logger.warning(f"Failed to retrieve RAG context: {e}")
+                if self.strict_mode:
+                    raise
+                logger.warning("Failed to retrieve RAG context: %s", e)
+                self.last_error = str(e)
 
-        # Build the analysis prompt with RAG context
-        prompt = self._build_prompt(alert, context, mitre_info, rag_context)
+        # Build prompt with available context
+        prompt = self._build_prompt(alert, context or {}, mitre_info or {}, rag_context)
 
-        # Get AI response
         try:
             response = self.client.generate(prompt, self.system_prompt)
 
-            # Parse JSON response
             try:
-                # Try to extract JSON from response
                 if "```json" in response:
                     json_str = response.split("```json")[1].split("```")[0]
                 elif "```" in response:
@@ -274,22 +376,41 @@ Format your response as JSON with these keys:
                     json_str = response
 
                 analysis = json.loads(json_str.strip())
+                analysis_method = "llm"
             except json.JSONDecodeError:
-                # If JSON parsing fails, create structured response from text
                 analysis = self._parse_text_response(response, alert)
+                analysis_method = "llm_text_parse"
+
+            if self.client_uses_mock:
+                self.fallback_used = True
+                analysis_method = "mock_response"
 
         except Exception as e:
-            # Fallback to rule-based analysis
-            analysis = self._fallback_analysis(alert, context, mitre_info)
+            self.last_error = str(e)
+            if self.strict_mode:
+                raise
+            self.fallback_used = True
+            analysis = self._fallback_analysis(alert, context or {}, mitre_info or {})
+            analysis_method = "rule-based-fallback"
 
-        # Add RAG metadata to analysis if used
         if rag_context:
             analysis["rag_context"] = {
                 "similar_alerts_count": len(rag_context.similar_alerts),
                 "threat_intel_count": len(rag_context.threat_intel),
                 "playbooks_count": len(rag_context.relevant_playbooks),
+                "temporal_context_count": len(rag_context.temporal_context),
                 "retrieved_at": rag_context.retrieved_at,
+                "retrieval_telemetry": rag_context.retrieval_telemetry,
             }
+
+        analysis["analysis_metadata"] = {
+            "analysis_method": analysis_method,
+            "provider": self.provider,
+            "runtime_mode": self.runtime_mode,
+            "fallback_used": self.fallback_used,
+            "last_error": self.last_error,
+            "rag_enabled": self.use_rag,
+        }
 
         return analysis
 
@@ -300,7 +421,7 @@ Format your response as JSON with these keys:
         mitre_info: Dict[str, str],
         rag_context=None,
     ) -> str:
-        """Build the prompt for alert analysis, including RAG context if available."""
+        """Build prompt for alert analysis, including RAG context if available."""
         rule_id = alert.get("rule", {}).get("id", "unknown")
         rule_desc = alert.get("rule", {}).get("description", "Unknown")
         severity = alert.get("rule", {}).get("level", 0)
@@ -327,7 +448,6 @@ MITRE ATT&CK CONTEXT:
 - Description: {mitre_info.get("description", "N/A")}
 """
 
-        # Add RAG context if available
         if rag_context and rag_context.total_documents > 0:
             prompt += f"""
 ================================================================================
@@ -366,7 +486,7 @@ Format your response as valid JSON.
 
         return prompt
 
-    def _parse_text_response(self, response: str, alert: Dict) -> Dict[str, Any]:
+    def _parse_text_response(self, response: str, alert: Dict[str, Any]) -> Dict[str, Any]:
         """Parse a text response into structured format."""
         rule_desc = alert.get("rule", {}).get("description", "Security Alert")
 
@@ -393,7 +513,6 @@ Format your response as valid JSON.
         rule_desc = alert.get("rule", {}).get("description", "Security Alert")
         severity = alert.get("rule", {}).get("level", 0)
 
-        # Rule-based title generation
         src_ip = alert.get("data", {}).get("srcip", "")
         user = alert.get("data", {}).get("dstuser", "")
 
@@ -404,13 +523,12 @@ Format your response as valid JSON.
         elif "sudo" in rule_desc.lower():
             title = f"Privilege Escalation Attempt{f' by {user}' if user else ''}"
         elif "mimikatz" in rule_desc.lower():
-            title = f"Credential Dumping (Mimikatz) Detected"
+            title = "Credential Dumping (Mimikatz) Detected"
         elif "shadow" in rule_desc.lower():
-            title = f"Credential File Access Detected"
+            title = "Credential File Access Detected"
         else:
             title = rule_desc
 
-        # Generate summary
         summary = f"Alert {rule_id} was triggered indicating {rule_desc.lower()}. "
         if src_ip:
             summary += f"The activity originated from IP {src_ip}. "
@@ -418,7 +536,6 @@ Format your response as valid JSON.
             summary += f"The user {user} was involved. "
         summary += "Immediate investigation is recommended based on the severity level."
 
-        # Generate investigation steps based on alert type
         investigation_steps = [
             "Review the full alert details in Wazuh dashboard",
             "Check for related events in the last 24 hours",
@@ -431,16 +548,13 @@ Format your response as valid JSON.
         if user:
             investigation_steps.append(f"Review recent activity for user {user}")
 
-        # Generate recommended actions based on severity
         recommended_actions = []
 
         if severity >= 12:
-            recommended_actions.append(f"[IMMEDIATE] Isolate affected system")
-            recommended_actions.append(f"[IMMEDIATE] Escalate to Incident Commander")
+            recommended_actions.append("[IMMEDIATE] Isolate affected system")
+            recommended_actions.append("[IMMEDIATE] Escalate to Incident Commander")
         elif severity >= 10:
-            recommended_actions.append(
-                f"[IMMEDIATE] Investigate alert within 30 minutes"
-            )
+            recommended_actions.append("[IMMEDIATE] Investigate alert within 30 minutes")
 
         if src_ip:
             recommended_actions.append(f"[IMMEDIATE] Consider blocking IP {src_ip}")
@@ -456,17 +570,7 @@ Format your response as valid JSON.
         }
 
     def index_alert_for_rag(self, alert: Dict[str, Any]) -> bool:
-        """
-        Index an alert for future RAG retrieval.
-
-        This allows the alert to be found in future similarity searches.
-
-        Args:
-            alert: Wazuh alert dictionary to index
-
-        Returns:
-            True if indexed successfully
-        """
+        """Index an alert for future RAG retrieval."""
         if not self.use_rag or not self.rag_retriever:
             logger.warning("RAG not available, cannot index alert")
             return False
@@ -474,16 +578,13 @@ Format your response as valid JSON.
         try:
             return self.rag_retriever.index_alert_for_rag(alert)
         except Exception as e:
-            logger.error(f"Failed to index alert for RAG: {e}")
+            if self.strict_mode:
+                raise
+            logger.error("Failed to index alert for RAG: %s", e)
             return False
 
     def get_rag_status(self) -> Dict[str, Any]:
-        """
-        Get the current RAG status and statistics.
-
-        Returns:
-            Dictionary with RAG availability and statistics
-        """
+        """Get current RAG status and statistics."""
         status = {
             "rag_available": self.use_rag and RAG_AVAILABLE,
             "rag_enabled": self.use_rag,
@@ -494,10 +595,34 @@ Format your response as valid JSON.
             try:
                 stats = self.rag_retriever.vector_store.get_stats()
                 status["vector_store_stats"] = stats
+                status["index_health"] = self.rag_retriever.vector_store.get_index_health()
             except Exception as e:
                 status["vector_store_error"] = str(e)
 
+        if self.rag_retriever and hasattr(self.rag_retriever, "embedding_service"):
+            embedding_service = self.rag_retriever.embedding_service
+            if hasattr(embedding_service, "get_cache_stats"):
+                try:
+                    status["embedding_cache_stats"] = embedding_service.get_cache_stats()
+                except Exception as e:
+                    status["embedding_cache_error"] = str(e)
+
         return status
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return current runtime status for logging and output metadata."""
+        data_source = "llm"
+        if self.client_uses_mock or self.fallback_used:
+            data_source = "mock_or_rule_fallback"
+        return {
+            "provider": self.provider,
+            "runtime_mode": self.runtime_mode,
+            "ai_mode": self.runtime_mode,
+            "data_source": data_source,
+            "fallback_used": self.fallback_used,
+            "last_error": self.last_error,
+            "rag_enabled": self.use_rag,
+        }
 
     @staticmethod
     def is_rag_available() -> bool:

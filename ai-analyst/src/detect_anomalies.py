@@ -19,6 +19,7 @@ import time
 from datetime import datetime
 
 from anomaly_detector import AnomalyDetector
+from config_loader import enforce_security_posture, load_settings, resolve_runtime_mode
 
 
 # ANSI Colors
@@ -221,8 +222,8 @@ Examples:
     parser.add_argument(
         "--hours",
         type=int,
-        default=24,
-        help="Hours of event history to analyze (default: 24)",
+        default=None,
+        help="Hours of event history to analyze (default: from settings)",
     )
     parser.add_argument(
         "--monitor",
@@ -232,8 +233,8 @@ Examples:
     parser.add_argument(
         "--interval",
         type=int,
-        default=300,
-        help="Seconds between scans in monitor mode (default: 300)",
+        default=None,
+        help="Seconds between scans in monitor mode (default: from settings)",
     )
     parser.add_argument(
         "--format",
@@ -244,29 +245,73 @@ Examples:
     parser.add_argument(
         "--threshold",
         type=float,
-        default=2.5,
+        default=None,
         help="Z-score threshold for flagging deviations (default: 2.5)",
     )
     parser.add_argument(
         "--baseline-file",
         type=str,
-        default="baselines/agent_baselines.json",
+        default=None,
         help="Path to baseline file (default: baselines/agent_baselines.json)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["strict", "demo"],
+        default=None,
+        help="Runtime mode (strict fails closed, demo allows mock fallbacks)",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to settings.yaml (default: ai-analyst/config/settings.yaml)",
     )
 
     args = parser.parse_args()
 
-    # Create detector
-    detector = AnomalyDetector(
-        z_score_threshold=args.threshold,
-        baseline_path=args.baseline_file,
+    settings = load_settings(args.config)
+    runtime_mode = resolve_runtime_mode(
+        settings=settings, cli_mode=args.mode, demo_flag=args.demo
     )
+    try:
+        security_warnings = enforce_security_posture(settings, runtime_mode=runtime_mode)
+    except ValueError as e:
+        print(f"\n{Colors.RED}Security configuration error:{Colors.END} {e}\n")
+        sys.exit(1)
+    for warning in security_warnings:
+        print(f"{Colors.YELLOW}Security warning:{Colors.END} {warning}")
+
+    anomaly_cfg = settings.get("anomaly_detection", {})
+
+    threshold = args.threshold if args.threshold is not None else anomaly_cfg.get(
+        "z_score_threshold", 2.5
+    )
+    lookback_hours = (
+        args.hours if args.hours is not None else anomaly_cfg.get("lookback_hours", 24)
+    )
+    monitor_interval = args.interval or anomaly_cfg.get("scan_interval_seconds", 300)
+    baseline_file = args.baseline_file or anomaly_cfg.get(
+        "baseline_file", "baselines/agent_baselines.json"
+    )
+
+    # Create detector
+    try:
+        detector = AnomalyDetector(
+            z_score_threshold=threshold,
+            min_confidence=anomaly_cfg.get("min_confidence", 0.6),
+            baseline_path=baseline_file,
+            config=settings,
+            runtime_mode=runtime_mode,
+        )
+    except Exception as e:
+        print(f"\n{Colors.RED}Failed to initialize detector:{Colors.END} {e}\n")
+        sys.exit(1)
 
     if args.monitor:
         # Continuous monitoring loop
         print_banner()
         print(f"  {Colors.BOLD}Continuous monitoring mode{Colors.END}")
-        print(f"  Scanning every {args.interval} seconds")
+        print(f"  Scanning every {monitor_interval} seconds")
         print(f"  Press Ctrl+C to stop")
         print()
 
@@ -275,23 +320,30 @@ Examples:
                 if args.demo:
                     result = detector.run_demo()
                 else:
-                    result = detector.run_live(lookback_hours=args.hours)
+                    result = detector.run_live(lookback_hours=lookback_hours)
 
                 if args.format == "json":
                     print(json.dumps(result, indent=2, default=str))
                 else:
                     display_results(result)
 
-                time.sleep(args.interval)
+                time.sleep(monitor_interval)
         except KeyboardInterrupt:
             print(f"\n  {Colors.DIM}Monitoring stopped.{Colors.END}\n")
             sys.exit(0)
+        except Exception as e:
+            print(f"\n  {Colors.RED}Error:{Colors.END} {e}\n")
+            sys.exit(1)
     else:
         # Single scan
-        if args.demo:
-            result = detector.run_demo()
-        else:
-            result = detector.run_live(lookback_hours=args.hours)
+        try:
+            if args.demo:
+                result = detector.run_demo()
+            else:
+                result = detector.run_live(lookback_hours=lookback_hours)
+        except Exception as e:
+            print(f"\n{Colors.RED}Error:{Colors.END} {e}\n")
+            sys.exit(1)
 
         if args.format == "json":
             print(json.dumps(result, indent=2, default=str))
