@@ -76,12 +76,19 @@ class VectorStore:
     def _connect(self):
         """Establish connection to OpenSearch."""
         try:
+            ssl_show_warn = bool(self.use_ssl and not self.verify_certs)
+            if ssl_show_warn:
+                logger.warning(
+                    "OpenSearch TLS certificate verification is disabled "
+                    "(verify_certs=false). Use only in controlled demo environments."
+                )
+
             self.client = OpenSearch(
                 hosts=self.hosts,
                 http_auth=(self.username, self.password) if self.username else None,
                 use_ssl=self.use_ssl,
                 verify_certs=self.verify_certs,
-                ssl_show_warn=False,
+                ssl_show_warn=ssl_show_warn,
             )
 
             # Test connection
