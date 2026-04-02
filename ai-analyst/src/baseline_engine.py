@@ -18,7 +18,7 @@ import logging
 import math
 import os
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class AgentBaseline:
     def __init__(self, agent_id: str, agent_name: str = ""):
         self.agent_id = agent_id
         self.agent_name = agent_name
-        self.last_updated = datetime.utcnow().isoformat()
+        self.last_updated = datetime.now(UTC).isoformat()
 
         # Statistical profiles
         self.login_hour_profile = BaselineProfile("login_hours")
@@ -211,6 +211,26 @@ class BaselineEngine:
             self.baselines[agent_id] = AgentBaseline(agent_id, agent_name)
         return self.baselines[agent_id]
 
+    @staticmethod
+    def _parse_event_datetime(event: Dict[str, Any]) -> Optional[datetime]:
+        timestamp = event.get("timestamp", "")
+        try:
+            return datetime.fromisoformat(
+                timestamp.replace("+0000", "+00:00").replace("Z", "+00:00")
+            )
+        except (ValueError, AttributeError):
+            return None
+
+    @staticmethod
+    def _event_data_fields(event: Dict[str, Any]) -> Tuple[str, str, str, str, str]:
+        data = event.get("data", {})
+        src_ip = data.get("srcip", "") or data.get("src_ip", "")
+        dst_ip = data.get("dstip", "") or data.get("dst_ip", "")
+        user = data.get("srcuser", "") or data.get("dstuser", "")
+        process = data.get("process", "") or data.get("program_name", "")
+        command = data.get("command", "")
+        return src_ip, dst_ip, user, process, command
+
     def build_from_events(self, events: List[Dict[str, Any]]):
         """
         Build baselines from a list of historical Wazuh events.
@@ -229,7 +249,7 @@ class BaselineEngine:
             agent_name = evts[0].get("agent", {}).get("name", "")
             baseline = self._get_or_create_baseline(agent_id, agent_name)
             self._process_events_for_baseline(baseline, evts)
-            baseline.last_updated = datetime.utcnow().isoformat()
+            baseline.last_updated = datetime.now(UTC).isoformat()
 
         logger.info(
             "Built baselines for %d agents from %d events",
@@ -252,12 +272,8 @@ class BaselineEngine:
         dest_ip_timestamps: Dict[str, List[float]] = defaultdict(list)
 
         for event in events:
-            timestamp = event.get("timestamp", "")
-            try:
-                dt = datetime.fromisoformat(
-                    timestamp.replace("+0000", "+00:00").replace("Z", "+00:00")
-                )
-            except (ValueError, AttributeError):
+            dt = self._parse_event_datetime(event)
+            if dt is None:
                 continue
 
             hour_key = dt.strftime("%Y-%m-%d-%H")
@@ -270,19 +286,16 @@ class BaselineEngine:
             rule = event.get("rule", {})
             groups = rule.get("groups", [])
             description = rule.get("description", "").lower()
+            data = event.get("data", {})
+            src_ip, dst_ip, user, process, command = self._event_data_fields(event)
 
             if "authentication_success" in groups or "login" in description:
                 baseline.login_hour_profile.update(float(dt.hour))
 
-            # Track source IPs
-            data = event.get("data", {})
-            src_ip = data.get("srcip", "") or data.get("src_ip", "")
             if src_ip:
                 baseline.known_source_ips.add(src_ip)
                 daily_ips[day_key].add(src_ip)
 
-            # Track destination IPs (for beacon detection)
-            dst_ip = data.get("dstip", "") or data.get("dst_ip", "")
             if dst_ip:
                 baseline.known_dest_ips.add(dst_ip)
                 dest_ip_timestamps[dst_ip].append(dt.timestamp())
@@ -290,17 +303,12 @@ class BaselineEngine:
             # Track sudo/privilege escalation
             if "sudo" in description or "privilege_escalation" in groups:
                 daily_sudo_counts[day_key] += 1
-                cmd = data.get("command", "")
-                if cmd:
-                    baseline.known_sudo_commands.add(cmd)
+                if command:
+                    baseline.known_sudo_commands.add(command)
 
-            # Track processes
-            process = data.get("process", "") or data.get("program_name", "")
             if process:
                 baseline.known_processes.add(process)
 
-            # Track users
-            user = data.get("srcuser", "") or data.get("dstuser", "")
             if user:
                 baseline.known_users.add(user)
 
@@ -380,296 +388,321 @@ class BaselineEngine:
     ) -> List[Dict[str, Any]]:
         """Check events for a single agent against its baseline."""
         deviations = []
+        window = self._collect_detection_window(baseline, events, deviations)
+        self._append_window_zscore_deviations(baseline, window, deviations)
+        self._append_new_entity_deviations(baseline, window, deviations)
+        self._append_beacon_deviations(baseline, window, deviations)
+        self._append_dns_deviations(baseline, window, deviations)
+        return deviations
 
-        # Aggregate current window metrics
-        hourly_counts: Dict[str, int] = defaultdict(int)
-        daily_sudo_counts: Dict[str, int] = defaultdict(int)
-        daily_ips: Dict[str, set] = defaultdict(set)
-        daily_fim_counts: Dict[str, int] = defaultdict(int)
-        hourly_failed_logins: Dict[str, int] = defaultdict(int)
-        hourly_dns_counts: Dict[str, int] = defaultdict(int)
-        new_ips: set = set()
-        new_processes: set = set()
-        # DNS exfil tracking
-        dns_queries_by_domain: Dict[str, List[str]] = defaultdict(list)
-        # Beacon tracking: connection timestamps per destination IP
-        dest_ip_timestamps: Dict[str, List[float]] = defaultdict(list)
+    def _collect_detection_window(
+        self, baseline: AgentBaseline, events: List[Dict], deviations: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        window = {
+            "hourly_counts": defaultdict(int),
+            "daily_sudo_counts": defaultdict(int),
+            "daily_ips": defaultdict(set),
+            "daily_fim_counts": defaultdict(int),
+            "hourly_failed_logins": defaultdict(int),
+            "hourly_dns_counts": defaultdict(int),
+            "new_ips": set(),
+            "new_processes": set(),
+            "dns_queries_by_domain": defaultdict(list),
+            "dest_ip_timestamps": defaultdict(list),
+        }
 
         for event in events:
-            timestamp = event.get("timestamp", "")
-            try:
-                dt = datetime.fromisoformat(
-                    timestamp.replace("+0000", "+00:00").replace("Z", "+00:00")
-                )
-            except (ValueError, AttributeError):
+            dt = self._parse_event_datetime(event)
+            if dt is None:
                 continue
+            self._record_detection_event(baseline, window, event, dt, deviations)
 
-            hour_key = dt.strftime("%Y-%m-%d-%H")
-            day_key = dt.strftime("%Y-%m-%d")
-            hourly_counts[hour_key] += 1
+        return window
 
-            rule = event.get("rule", {})
-            groups = rule.get("groups", [])
-            description = rule.get("description", "").lower()
-            data = event.get("data", {})
+    def _record_detection_event(
+        self,
+        baseline: AgentBaseline,
+        window: Dict[str, Any],
+        event: Dict[str, Any],
+        dt: datetime,
+        deviations: List[Dict[str, Any]],
+    ) -> None:
+        hour_key = dt.strftime("%Y-%m-%d-%H")
+        day_key = dt.strftime("%Y-%m-%d")
+        window["hourly_counts"][hour_key] += 1
 
-            # Check for logins at unusual hours
-            if "authentication_success" in groups or "login" in description:
-                z = baseline.login_hour_profile.z_score(float(dt.hour))
-                if z > self.z_score_threshold:
-                    deviations.append(
-                        {
-                            "category": "login_anomaly",
-                            "subcategory": "unusual_hour",
-                            "agent_id": baseline.agent_id,
-                            "agent_name": baseline.agent_name,
-                            "z_score": round(z, 2),
-                            "detail": f"Login at hour {dt.hour}:00 (baseline mean: {baseline.login_hour_profile.mean:.1f}, std: {baseline.login_hour_profile.std_dev:.1f})",
-                            "event": event,
-                        }
-                    )
+        rule = event.get("rule", {})
+        groups = rule.get("groups", [])
+        description = rule.get("description", "").lower()
+        data = event.get("data", {})
+        src_ip, dst_ip, user, process, command = self._event_data_fields(event)
 
-            # Check for new/unknown source IPs
-            src_ip = data.get("srcip", "") or data.get("src_ip", "")
-            if src_ip and src_ip not in baseline.known_source_ips:
-                new_ips.add(src_ip)
-                daily_ips[day_key].add(src_ip)
-
-            # Track destination IPs for beacon detection
-            dst_ip = data.get("dstip", "") or data.get("dst_ip", "")
-            if dst_ip:
-                dest_ip_timestamps[dst_ip].append(dt.timestamp())
-
-            # Check for new/unknown processes
-            process = data.get("process", "") or data.get("program_name", "")
-            if process and process not in baseline.known_processes:
-                new_processes.add(process)
-
-            # Track sudo
-            if "sudo" in description or "privilege_escalation" in groups:
-                daily_sudo_counts[day_key] += 1
-                cmd = data.get("command", "")
-                if cmd and cmd not in baseline.known_sudo_commands:
-                    deviations.append(
-                        {
-                            "category": "privilege_anomaly",
-                            "subcategory": "new_sudo_command",
-                            "agent_id": baseline.agent_id,
-                            "agent_name": baseline.agent_name,
-                            "z_score": 3.0,
-                            "detail": f"New sudo command never seen before: {cmd}",
-                            "event": event,
-                        }
-                    )
-
-            # Track FIM
-            if "syscheck" in groups or "file_integrity" in description:
-                daily_fim_counts[day_key] += 1
-
-            # Track failed logins
-            if "authentication_failed" in groups or "failed" in description:
-                hourly_failed_logins[hour_key] += 1
-
-            # Track DNS queries for exfil detection
-            if "dns" in description or "dns" in " ".join(groups).lower():
-                hourly_dns_counts[hour_key] += 1
-                query_name = data.get("query", "") or data.get("dns_query", "")
-                if query_name:
-                    base_domain = self._extract_base_domain(query_name)
-                    dns_queries_by_domain[base_domain].append(query_name)
-
-        # Check event volume per hour
-        for hour_key, count in hourly_counts.items():
-            z = baseline.events_per_hour_profile.z_score(float(count))
+        if "authentication_success" in groups or "login" in description:
+            z = baseline.login_hour_profile.z_score(float(dt.hour))
             if z > self.z_score_threshold:
-                deviations.append(
-                    {
-                        "category": "volume_anomaly",
-                        "subcategory": "event_spike",
-                        "agent_id": baseline.agent_id,
-                        "agent_name": baseline.agent_name,
-                        "z_score": round(z, 2),
-                        "detail": f"Event volume spike: {count} events/hour (baseline mean: {baseline.events_per_hour_profile.mean:.1f}, std: {baseline.events_per_hour_profile.std_dev:.1f})",
-                        "event": None,
-                    }
+                self._append_deviation(
+                    deviations,
+                    baseline,
+                    "login_anomaly",
+                    "unusual_hour",
+                    round(z, 2),
+                    (
+                        f"Login at hour {dt.hour}:00 (baseline mean: "
+                        f"{baseline.login_hour_profile.mean:.1f}, "
+                        f"std: {baseline.login_hour_profile.std_dev:.1f})"
+                    ),
+                    event=event,
                 )
 
-        # Check sudo frequency
-        for day_key, count in daily_sudo_counts.items():
-            z = baseline.sudo_per_day_profile.z_score(float(count))
-            if z > self.z_score_threshold:
-                deviations.append(
-                    {
-                        "category": "privilege_anomaly",
-                        "subcategory": "sudo_spike",
-                        "agent_id": baseline.agent_id,
-                        "agent_name": baseline.agent_name,
-                        "z_score": round(z, 2),
-                        "detail": f"Elevated sudo usage: {count} commands/day (baseline mean: {baseline.sudo_per_day_profile.mean:.1f})",
-                        "event": None,
-                    }
+        if src_ip and src_ip not in baseline.known_source_ips:
+            window["new_ips"].add(src_ip)
+            window["daily_ips"][day_key].add(src_ip)
+
+        if dst_ip:
+            window["dest_ip_timestamps"][dst_ip].append(dt.timestamp())
+
+        if process and process not in baseline.known_processes:
+            window["new_processes"].add(process)
+
+        if "sudo" in description or "privilege_escalation" in groups:
+            window["daily_sudo_counts"][day_key] += 1
+            if command and command not in baseline.known_sudo_commands:
+                self._append_deviation(
+                    deviations,
+                    baseline,
+                    "privilege_anomaly",
+                    "new_sudo_command",
+                    3.0,
+                    f"New sudo command never seen before: {command}",
+                    event=event,
                 )
 
-        # Check failed login frequency
-        for hour_key, count in hourly_failed_logins.items():
-            z = baseline.failed_logins_per_hour_profile.z_score(float(count))
+        if "syscheck" in groups or "file_integrity" in description:
+            window["daily_fim_counts"][day_key] += 1
+
+        if "authentication_failed" in groups or "failed" in description:
+            window["hourly_failed_logins"][hour_key] += 1
+
+        if "dns" in description or "dns" in " ".join(groups).lower():
+            window["hourly_dns_counts"][hour_key] += 1
+            query_name = data.get("query", "") or data.get("dns_query", "")
+            if query_name:
+                base_domain = self._extract_base_domain(query_name)
+                window["dns_queries_by_domain"][base_domain].append(query_name)
+
+    def _append_window_zscore_deviations(
+        self, baseline: AgentBaseline, window: Dict[str, Any], deviations: List[Dict[str, Any]]
+    ) -> None:
+        self._append_counter_deviations(
+            deviations,
+            baseline,
+            window["hourly_counts"],
+            baseline.events_per_hour_profile,
+            "volume_anomaly",
+            "event_spike",
+            "Event volume spike: {count} events/hour (baseline mean: {mean:.1f}, std: {std:.1f})",
+        )
+        self._append_counter_deviations(
+            deviations,
+            baseline,
+            window["daily_sudo_counts"],
+            baseline.sudo_per_day_profile,
+            "privilege_anomaly",
+            "sudo_spike",
+            "Elevated sudo usage: {count} commands/day (baseline mean: {mean:.1f})",
+        )
+        self._append_counter_deviations(
+            deviations,
+            baseline,
+            window["hourly_failed_logins"],
+            baseline.failed_logins_per_hour_profile,
+            "login_anomaly",
+            "failed_login_spike",
+            "Failed login spike: {count}/hour (baseline mean: {mean:.1f})",
+        )
+        self._append_counter_deviations(
+            deviations,
+            baseline,
+            window["daily_fim_counts"],
+            baseline.fim_changes_per_day_profile,
+            "file_integrity_anomaly",
+            "fim_spike",
+            "File integrity change spike: {count} changes/day (baseline mean: {mean:.1f})",
+        )
+
+    def _append_counter_deviations(
+        self,
+        deviations: List[Dict[str, Any]],
+        baseline: AgentBaseline,
+        counts: Dict[str, int],
+        profile: BaselineProfile,
+        category: str,
+        subcategory: str,
+        detail_template: str,
+    ) -> None:
+        for count in counts.values():
+            z = profile.z_score(float(count))
             if z > self.z_score_threshold:
-                deviations.append(
-                    {
-                        "category": "login_anomaly",
-                        "subcategory": "failed_login_spike",
-                        "agent_id": baseline.agent_id,
-                        "agent_name": baseline.agent_name,
-                        "z_score": round(z, 2),
-                        "detail": f"Failed login spike: {count}/hour (baseline mean: {baseline.failed_logins_per_hour_profile.mean:.1f})",
-                        "event": None,
-                    }
+                self._append_deviation(
+                    deviations,
+                    baseline,
+                    category,
+                    subcategory,
+                    round(z, 2),
+                    detail_template.format(
+                        count=count,
+                        mean=profile.mean,
+                        std=profile.std_dev,
+                    ),
                 )
 
-        # Check FIM change rate
-        for day_key, count in daily_fim_counts.items():
-            z = baseline.fim_changes_per_day_profile.z_score(float(count))
-            if z > self.z_score_threshold:
-                deviations.append(
-                    {
-                        "category": "file_integrity_anomaly",
-                        "subcategory": "fim_spike",
-                        "agent_id": baseline.agent_id,
-                        "agent_name": baseline.agent_name,
-                        "z_score": round(z, 2),
-                        "detail": f"File integrity change spike: {count} changes/day (baseline mean: {baseline.fim_changes_per_day_profile.mean:.1f})",
-                        "event": None,
-                    }
-                )
-
-        # Report new IPs
-        if new_ips:
-            deviations.append(
-                {
-                    "category": "network_anomaly",
-                    "subcategory": "new_source_ip",
-                    "agent_id": baseline.agent_id,
-                    "agent_name": baseline.agent_name,
-                    "z_score": 2.5,
-                    "detail": f"Connections from {len(new_ips)} previously unseen IP(s): {', '.join(list(new_ips)[:5])}",
-                    "event": None,
-                }
+    def _append_new_entity_deviations(
+        self, baseline: AgentBaseline, window: Dict[str, Any], deviations: List[Dict[str, Any]]
+    ) -> None:
+        if window["new_ips"]:
+            self._append_deviation(
+                deviations,
+                baseline,
+                "network_anomaly",
+                "new_source_ip",
+                2.5,
+                (
+                    "Connections from "
+                    f"{len(window['new_ips'])} previously unseen IP(s): "
+                    f"{', '.join(list(window['new_ips'])[:5])}"
+                ),
+            )
+        if window["new_processes"]:
+            self._append_deviation(
+                deviations,
+                baseline,
+                "process_anomaly",
+                "new_process",
+                2.5,
+                f"New process(es) never seen before: {', '.join(list(window['new_processes'])[:5])}",
             )
 
-        # Report new processes
-        if new_processes:
-            deviations.append(
-                {
-                    "category": "process_anomaly",
-                    "subcategory": "new_process",
-                    "agent_id": baseline.agent_id,
-                    "agent_name": baseline.agent_name,
-                    "z_score": 2.5,
-                    "detail": f"New process(es) never seen before: {', '.join(list(new_processes)[:5])}",
-                    "event": None,
-                }
-            )
+    def _append_beacon_deviations(
+        self, baseline: AgentBaseline, window: Dict[str, Any], deviations: List[Dict[str, Any]]
+    ) -> None:
+        for dst_ip, timestamps in window["dest_ip_timestamps"].items():
+            if len(timestamps) < 5:
+                continue
+            timestamps.sort()
+            intervals = [timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)]
+            if not intervals:
+                continue
+            mean_interval = sum(intervals) / len(intervals)
+            if mean_interval <= 0:
+                continue
+            interval_std = self._std_dev(intervals)
+            cv = interval_std / mean_interval
+            if cv < 0.15:
+                interval_min = mean_interval / 60.0
+                is_new_dest = dst_ip not in baseline.known_dest_ips
+                suffix = " [NEW destination]" if is_new_dest else ""
+                self._append_deviation(
+                    deviations,
+                    baseline,
+                    "beacon_anomaly",
+                    "periodic_beacon",
+                    max(4.0, 6.0 - cv * 20),
+                    (
+                        f"Periodic beaconing to {dst_ip}: {len(timestamps)} connections "
+                        f"at ~{interval_min:.1f}min intervals (CV={cv:.3f}){suffix}"
+                    ),
+                )
 
-        # === BEACON DETECTION ===
-        for dst_ip, timestamps in dest_ip_timestamps.items():
-            if len(timestamps) >= 5:  # Need enough connections to detect periodicity
-                timestamps.sort()
-                intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
-                if not intervals:
-                    continue
-                mean_interval = sum(intervals) / len(intervals)
-                interval_std = self._std_dev(intervals)
-
-                # A beacon has very regular intervals → low std dev relative to mean
-                # Coefficient of variation < 0.15 with at least 5 connections is suspicious
-                if mean_interval > 0:
-                    cv = interval_std / mean_interval  # coefficient of variation
-                    is_periodic = cv < 0.15 and len(timestamps) >= 5
-                    is_new_dest = dst_ip not in baseline.known_dest_ips
-
-                    if is_periodic:
-                        interval_min = mean_interval / 60.0
-                        deviations.append(
-                            {
-                                "category": "beacon_anomaly",
-                                "subcategory": "periodic_beacon",
-                                "agent_id": baseline.agent_id,
-                                "agent_name": baseline.agent_name,
-                                "z_score": max(4.0, 6.0 - cv * 20),  # Lower CV = higher score
-                                "detail": f"Periodic beaconing to {dst_ip}: {len(timestamps)} connections at ~{interval_min:.1f}min intervals (CV={cv:.3f}){' [NEW destination]' if is_new_dest else ''}",
-                                "event": None,
-                            }
-                        )
-
-        # === DNS EXFILTRATION DETECTION ===
-        # Check per-domain query patterns
-        for domain, queries in dns_queries_by_domain.items():
-            # Detect high-volume queries to a single domain
-            if len(queries) > 20:  # More than 20 queries to one domain in the window
+    def _append_dns_deviations(
+        self, baseline: AgentBaseline, window: Dict[str, Any], deviations: List[Dict[str, Any]]
+    ) -> None:
+        for domain, queries in window["dns_queries_by_domain"].items():
+            if len(queries) > 20:
                 z = baseline.dns_queries_per_hour_profile.z_score(float(len(queries)))
                 if z > self.z_score_threshold or len(queries) > 50:
-                    deviations.append(
-                        {
-                            "category": "dns_exfil_anomaly",
-                            "subcategory": "dns_volume_spike",
-                            "agent_id": baseline.agent_id,
-                            "agent_name": baseline.agent_name,
-                            "z_score": round(max(z, 3.5), 2),
-                            "detail": f"High-volume DNS queries to {domain}: {len(queries)} queries (potential tunneling/exfiltration)",
-                            "event": None,
-                        }
+                    self._append_deviation(
+                        deviations,
+                        baseline,
+                        "dns_exfil_anomaly",
+                        "dns_volume_spike",
+                        round(max(z, 3.5), 2),
+                        (
+                            f"High-volume DNS queries to {domain}: {len(queries)} queries "
+                            "(potential tunneling/exfiltration)"
+                        ),
                     )
 
-            # Detect high-entropy subdomains (encoded data in DNS queries)
             long_queries = [q for q in queries if len(q) > 50]
-            high_entropy_queries = [q for q in queries if self._subdomain_entropy(q) > 3.5]
-
+            high_entropy_queries = [
+                q for q in queries if self._subdomain_entropy(q) > 3.5
+            ]
             if len(high_entropy_queries) >= 3:
-                avg_entropy = sum(self._subdomain_entropy(q) for q in high_entropy_queries) / len(high_entropy_queries)
-                deviations.append(
-                    {
-                        "category": "dns_exfil_anomaly",
-                        "subcategory": "high_entropy_dns",
-                        "agent_id": baseline.agent_id,
-                        "agent_name": baseline.agent_name,
-                        "z_score": round(min(avg_entropy * 1.5, 8.0), 2),
-                        "detail": f"High-entropy DNS subdomains to {domain}: {len(high_entropy_queries)} queries with avg entropy {avg_entropy:.2f} (likely encoded/encrypted data)",
-                        "event": None,
-                    }
+                avg_entropy = sum(self._subdomain_entropy(q) for q in high_entropy_queries) / len(
+                    high_entropy_queries
                 )
-
+                self._append_deviation(
+                    deviations,
+                    baseline,
+                    "dns_exfil_anomaly",
+                    "high_entropy_dns",
+                    round(min(avg_entropy * 1.5, 8.0), 2),
+                    (
+                        f"High-entropy DNS subdomains to {domain}: "
+                        f"{len(high_entropy_queries)} queries with avg entropy "
+                        f"{avg_entropy:.2f} (likely encoded/encrypted data)"
+                    ),
+                )
             if len(long_queries) >= 3:
                 avg_len = sum(len(q) for q in long_queries) / len(long_queries)
-                deviations.append(
-                    {
-                        "category": "dns_exfil_anomaly",
-                        "subcategory": "long_dns_queries",
-                        "agent_id": baseline.agent_id,
-                        "agent_name": baseline.agent_name,
-                        "z_score": round(min(avg_len / 20.0, 7.0), 2),
-                        "detail": f"Unusually long DNS queries to {domain}: {len(long_queries)} queries avg {avg_len:.0f} chars (normal <30 chars)",
-                        "event": None,
-                    }
+                self._append_deviation(
+                    deviations,
+                    baseline,
+                    "dns_exfil_anomaly",
+                    "long_dns_queries",
+                    round(min(avg_len / 20.0, 7.0), 2),
+                    (
+                        f"Unusually long DNS queries to {domain}: {len(long_queries)} "
+                        f"queries avg {avg_len:.0f} chars (normal <30 chars)"
+                    ),
                 )
 
-        # Check DNS query volume per hour (only flag spikes ABOVE baseline, not below)
-        for hour_key, count in hourly_dns_counts.items():
+        for count in window["hourly_dns_counts"].values():
             if count > baseline.dns_queries_per_hour_profile.mean:
                 z = baseline.dns_queries_per_hour_profile.z_score(float(count))
                 if z > self.z_score_threshold:
-                    deviations.append(
-                        {
-                            "category": "dns_exfil_anomaly",
-                            "subcategory": "dns_query_spike",
-                            "agent_id": baseline.agent_id,
-                            "agent_name": baseline.agent_name,
-                            "z_score": round(z, 2),
-                            "detail": f"DNS query volume spike: {count} queries/hour (baseline mean: {baseline.dns_queries_per_hour_profile.mean:.1f})",
-                            "event": None,
-                        }
+                    self._append_deviation(
+                        deviations,
+                        baseline,
+                        "dns_exfil_anomaly",
+                        "dns_query_spike",
+                        round(z, 2),
+                        (
+                            f"DNS query volume spike: {count} queries/hour "
+                            f"(baseline mean: {baseline.dns_queries_per_hour_profile.mean:.1f})"
+                        ),
                     )
 
-        return deviations
+    def _append_deviation(
+        self,
+        deviations: List[Dict[str, Any]],
+        baseline: AgentBaseline,
+        category: str,
+        subcategory: str,
+        z_score: float,
+        detail: str,
+        event: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        deviations.append(
+            {
+                "category": category,
+                "subcategory": subcategory,
+                "agent_id": baseline.agent_id,
+                "agent_name": baseline.agent_name,
+                "z_score": z_score,
+                "detail": detail,
+                "event": event,
+            }
+        )
 
     def save(self, filepath: str):
         """Save baselines to a JSON file."""
@@ -812,7 +845,7 @@ def generate_mock_anomalous_events() -> List[Dict[str, Any]]:
     Generate mock events that contain anomalies for demo purposes.
     Mix of normal events + anomalous events that should trigger detections.
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     events = []
 

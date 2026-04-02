@@ -45,6 +45,15 @@ def _extract_bearer_token(value: str) -> Optional[str]:
     return None
 
 
+def _lookup_alert(analyzer: AlertAnalyzer, alert_id: str) -> Optional[Dict[str, Any]]:
+    alert = analyzer.wazuh_client.get_alert_by_id(alert_id)
+    if alert:
+        return alert
+
+    by_rule = analyzer.wazuh_client.get_alerts(limit=1, rule_id=alert_id)
+    return by_rule[0] if by_rule else None
+
+
 class APIHandler(BaseHTTPRequestHandler):
     analyzer: Optional[AlertAnalyzer] = None
     require_auth: bool = True
@@ -155,19 +164,14 @@ class APIHandler(BaseHTTPRequestHandler):
             raise ValueError("provide exactly one of: alert, alert_id, recent")
 
         if isinstance(raw_alert, dict):
-            analysis = self.analyzer.analyze(raw_alert)
-            return {"analysis": analysis}
+            return {"analysis": self.analyzer.analyze(raw_alert)}
 
         if alert_id is not None:
             alert_id = str(alert_id)
-            alert = self.analyzer.wazuh_client.get_alert_by_id(alert_id)
-            if not alert:
-                by_rule = self.analyzer.wazuh_client.get_alerts(limit=1, rule_id=alert_id)
-                alert = by_rule[0] if by_rule else None
+            alert = _lookup_alert(self.analyzer, alert_id)
             if not alert:
                 raise ValueError(f"alert not found: {alert_id}")
-            analysis = self.analyzer.analyze(alert)
-            return {"analysis": analysis}
+            return {"analysis": self.analyzer.analyze(alert)}
 
         if recent is None:
             raise ValueError("invalid request")

@@ -10,6 +10,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 
+from utils import extract_alert_fields
+
 # RAG Integration
 try:
     from vector_store import VectorStore, get_vector_store
@@ -21,6 +23,46 @@ except ImportError:
 
 # Logger
 logger = logging.getLogger(__name__)
+
+MOCK_TI_BY_IP = {
+    "203.0.113.45": {
+        "is_malicious": True,
+        "confidence": 95,
+        "reports": 127,
+        "country": "CN",
+        "isp": "Example ISP",
+    },
+    "198.51.100.23": {
+        "is_malicious": True,
+        "confidence": 78,
+        "reports": 45,
+        "country": "RU",
+        "isp": "Another ISP",
+    },
+}
+
+MOCK_GEO_BY_IP = {
+    "203.0.113.45": {
+        "country": "China",
+        "country_code": "CN",
+        "region": "Beijing",
+        "city": "Beijing",
+        "latitude": 39.9042,
+        "longitude": 116.4074,
+        "timezone": "Asia/Shanghai",
+    },
+    "198.51.100.23": {
+        "country": "Russia",
+        "country_code": "RU",
+        "region": "Moscow",
+        "city": "Moscow",
+        "latitude": 55.7558,
+        "longitude": 37.6173,
+        "timezone": "Europe/Moscow",
+    },
+}
+
+HIGH_RISK_COUNTRIES = {"CN", "RU", "KP", "IR"}
 
 
 class ThreatIntelligenceClient:
@@ -75,35 +117,19 @@ class ThreatIntelligenceClient:
                     "source": "AbuseIPDB",
                 }
         except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.warning(f"AbuseIPDB lookup failed for {ip}: {e}")
+            logger.warning("AbuseIPDB lookup failed for %s: %s", ip, e)
 
         return self._mock_lookup(ip)
 
     def _mock_lookup(self, ip: str) -> Dict[str, Any]:
         """Return mock threat intelligence data for demo purposes."""
-        # Simulate known malicious IPs
-        known_bad = {
-            "203.0.113.45": {
-                "is_malicious": True,
-                "confidence": 95,
-                "reports": 127,
-                "country": "CN",
-                "isp": "Example ISP",
+        if ip in MOCK_TI_BY_IP:
+            return {
+                "ip": ip,
+                "source": "Mock TI",
                 "last_reported": datetime.now().isoformat(),
-            },
-            "198.51.100.23": {
-                "is_malicious": True,
-                "confidence": 78,
-                "reports": 45,
-                "country": "RU",
-                "isp": "Another ISP",
-                "last_reported": datetime.now().isoformat(),
-            },
-        }
-
-        if ip in known_bad:
-            return {"ip": ip, "source": "Mock TI", **known_bad[ip]}
+                **MOCK_TI_BY_IP[ip],
+            }
 
         return {
             "ip": ip,
@@ -142,9 +168,6 @@ class ThreatIntelligenceClient:
 class GeoIPClient:
     """Client for IP geolocation lookups."""
 
-    def __init__(self):
-        pass
-
     def lookup(self, ip: str) -> Dict[str, Any]:
         """
         Get geolocation data for an IP address.
@@ -155,30 +178,8 @@ class GeoIPClient:
         Returns:
             Geolocation data
         """
-        # Mock geolocation data
-        mock_data = {
-            "203.0.113.45": {
-                "country": "China",
-                "country_code": "CN",
-                "region": "Beijing",
-                "city": "Beijing",
-                "latitude": 39.9042,
-                "longitude": 116.4074,
-                "timezone": "Asia/Shanghai",
-            },
-            "198.51.100.23": {
-                "country": "Russia",
-                "country_code": "RU",
-                "region": "Moscow",
-                "city": "Moscow",
-                "latitude": 55.7558,
-                "longitude": 37.6173,
-                "timezone": "Europe/Moscow",
-            },
-        }
-
-        if ip in mock_data:
-            return mock_data[ip]
+        if ip in MOCK_GEO_BY_IP:
+            return MOCK_GEO_BY_IP[ip]
 
         return {
             "country": "Unknown",
@@ -224,43 +225,49 @@ class HistoricalAnalyzer:
                     source_ip=source_ip, user=user, time_range=f"{hours}h"
                 )
                 if events:
-                    timestamps = [e.get("timestamp") for e in events if e.get("timestamp")]
-                    first_seen = min(timestamps) if timestamps else None
-                    last_seen = max(timestamps) if timestamps else None
-                    unique_rules = len(
-                        {
-                            str(e.get("rule", {}).get("id"))
-                            for e in events
-                            if e.get("rule", {}).get("id") is not None
-                        }
-                    )
-                    return {
-                        "total_events": len(events),
-                        "unique_rules": unique_rules,
-                        "first_seen": first_seen,
-                        "last_seen": last_seen,
-                        "event_timeline": [],
-                        "related_sources": [{"ip": source_ip, "count": len(events)}]
-                        if source_ip
-                        else [],
-                        "attack_progression": "Historical correlation from live Wazuh events",
-                    }
+                    return self._summarize_live_events(events, source_ip)
 
                 if not self.allow_mock:
-                    return {
-                        "total_events": 0,
-                        "unique_rules": 0,
-                        "first_seen": None,
-                        "last_seen": None,
-                        "event_timeline": [],
-                        "related_sources": [],
-                        "attack_progression": "No related events found in live Wazuh data",
-                    }
+                    return self._empty_result()
             except Exception as e:
                 if not self.allow_mock:
                     raise
                 logger.warning("Historical query failed, using mock data: %s", e)
 
+        return self._mock_result(source_ip)
+
+    def _summarize_live_events(
+        self, events: List[Dict[str, Any]], source_ip: Optional[str]
+    ) -> Dict[str, Any]:
+        timestamps = [e.get("timestamp") for e in events if e.get("timestamp")]
+        unique_rules = {
+            str(e.get("rule", {}).get("id"))
+            for e in events
+            if e.get("rule", {}).get("id") is not None
+        }
+        return {
+            "total_events": len(events),
+            "unique_rules": len(unique_rules),
+            "first_seen": min(timestamps) if timestamps else None,
+            "last_seen": max(timestamps) if timestamps else None,
+            "event_timeline": [],
+            "related_sources": self._related_sources(source_ip, len(events)),
+            "attack_progression": "Historical correlation from live Wazuh events",
+        }
+
+    @staticmethod
+    def _empty_result() -> Dict[str, Any]:
+        return {
+            "total_events": 0,
+            "unique_rules": 0,
+            "first_seen": None,
+            "last_seen": None,
+            "event_timeline": [],
+            "related_sources": [],
+            "attack_progression": "No related events found in live Wazuh data",
+        }
+
+    def _mock_result(self, source_ip: Optional[str]) -> Dict[str, Any]:
         # Demo-mode fallback
         return {
             "total_events": 47,
@@ -272,9 +279,13 @@ class HistoricalAnalyzer:
                 {"time": "-1h", "count": 20, "rule": "100001"},
                 {"time": "-30m", "count": 12, "rule": "100001"},
             ],
-            "related_sources": [{"ip": source_ip, "count": 47}] if source_ip else [],
+            "related_sources": self._related_sources(source_ip, 47),
             "attack_progression": "Sustained brute force attack over 2 hours",
         }
+
+    @staticmethod
+    def _related_sources(source_ip: Optional[str], count: int) -> List[Dict[str, Any]]:
+        return [{"ip": source_ip, "count": count}] if source_ip else []
 
     def detect_patterns(self, events: List[Dict]) -> Dict[str, Any]:
         """Detect patterns in event data."""
@@ -313,41 +324,7 @@ class AlertEnricher:
         self._embedding_service = None
 
         if self.enable_rag_indexing:
-            try:
-                rag_cfg = self.config.get("rag", {}) if isinstance(self.config, dict) else {}
-                embedding_cfg = (
-                    rag_cfg.get("embedding", {}) if isinstance(rag_cfg, dict) else {}
-                )
-                opensearch_cfg = (
-                    rag_cfg.get("opensearch", {}) if isinstance(rag_cfg, dict) else {}
-                )
-
-                self._embedding_service = get_embedding_service(
-                    model_name=embedding_cfg.get("model"),
-                    cache_dir=embedding_cfg.get("cache_dir"),
-                    max_memory_entries=embedding_cfg.get("max_memory_entries", 5000),
-                    max_disk_files=embedding_cfg.get("max_disk_files", 50000),
-                    max_disk_size_mb=embedding_cfg.get("max_disk_size_mb", 2048),
-                    prune_interval_writes=embedding_cfg.get("prune_interval_writes", 200),
-                    reset=True,
-                )
-                os_host = opensearch_cfg.get("host")
-                os_port = opensearch_cfg.get("port")
-                os_hosts = [f"{os_host}:{os_port}"] if os_host and os_port else None
-                self._vector_store = get_vector_store(
-                    embedding_dimension=self._embedding_service.dimension,
-                    hosts=os_hosts,
-                    username=opensearch_cfg.get("username"),
-                    password=opensearch_cfg.get("password")
-                    or os.environ.get("OPENSEARCH_PASSWORD"),
-                    use_ssl=opensearch_cfg.get("use_ssl", True),
-                    verify_certs=opensearch_cfg.get("verify_certs", True),
-                    reset=True,
-                )
-                logger.info("RAG indexing enabled for alert enrichment")
-            except Exception as e:
-                logger.warning(f"Failed to initialize RAG indexing: {e}")
-                self.enable_rag_indexing = False
+            self._initialize_rag_indexing()
 
     def enrich(
         self, alert: Dict[str, Any], index_for_rag: bool = None
@@ -368,24 +345,68 @@ class AlertEnricher:
             "enrichment_sources": [],
         }
 
-        # Extract key fields from alert
-        data = alert.get("data", {})
-        src_ip = data.get("srcip") or data.get("src_ip")
-        user = data.get("dstuser") or data.get("user")
+        alert_fields = extract_alert_fields(alert)
+        src_ip = alert_fields["src_ip"]
+        user = alert_fields["user"]
         agent = alert.get("agent", {}).get("name")
 
-        # Threat Intelligence
-        if src_ip:
-            ti_data = self.threat_intel.lookup_ip(src_ip)
-            context["threat_intel"] = ti_data
-            context["enrichment_sources"].append("threat_intel")
+        self._add_network_context(context, src_ip)
+        self._add_historical_context(context, src_ip, user, agent)
+        context["risk_score"] = self._calculate_risk_score(alert, context)
+        context["attack_classification"] = self._classify_attack(alert, context)
+        self._maybe_add_rag_index(context, alert, index_for_rag)
 
-            # Geolocation
-            geo_data = self.geoip.lookup(src_ip)
-            context["geolocation"] = geo_data
-            context["enrichment_sources"].append("geolocation")
+        return context
 
-        # Historical Analysis
+    def _initialize_rag_indexing(self) -> None:
+        try:
+            rag_cfg = self.config.get("rag", {}) if isinstance(self.config, dict) else {}
+            embedding_cfg = rag_cfg.get("embedding", {}) if isinstance(rag_cfg, dict) else {}
+            opensearch_cfg = (
+                rag_cfg.get("opensearch", {}) if isinstance(rag_cfg, dict) else {}
+            )
+
+            self._embedding_service = get_embedding_service(
+                model_name=embedding_cfg.get("model"),
+                cache_dir=embedding_cfg.get("cache_dir"),
+                max_memory_entries=embedding_cfg.get("max_memory_entries", 5000),
+                max_disk_files=embedding_cfg.get("max_disk_files", 50000),
+                max_disk_size_mb=embedding_cfg.get("max_disk_size_mb", 2048),
+                prune_interval_writes=embedding_cfg.get("prune_interval_writes", 200),
+                reset=True,
+            )
+            os_host = opensearch_cfg.get("host")
+            os_port = opensearch_cfg.get("port")
+            os_hosts = [f"{os_host}:{os_port}"] if os_host and os_port else None
+            self._vector_store = get_vector_store(
+                embedding_dimension=self._embedding_service.dimension,
+                hosts=os_hosts,
+                username=opensearch_cfg.get("username"),
+                password=opensearch_cfg.get("password")
+                or os.environ.get("OPENSEARCH_PASSWORD"),
+                use_ssl=opensearch_cfg.get("use_ssl", True),
+                verify_certs=opensearch_cfg.get("verify_certs", True),
+                reset=True,
+            )
+            logger.info("RAG indexing enabled for alert enrichment")
+        except Exception as e:
+            logger.warning("Failed to initialize RAG indexing: %s", e)
+            self.enable_rag_indexing = False
+
+    def _add_network_context(self, context: Dict[str, Any], src_ip: Optional[str]) -> None:
+        if not src_ip:
+            return
+        context["threat_intel"] = self.threat_intel.lookup_ip(src_ip)
+        context["geolocation"] = self.geoip.lookup(src_ip)
+        context["enrichment_sources"].extend(["threat_intel", "geolocation"])
+
+    def _add_historical_context(
+        self,
+        context: Dict[str, Any],
+        src_ip: Optional[str],
+        user: Optional[str],
+        agent: Optional[str],
+    ) -> None:
         history_data = self.history.get_related_events(
             source_ip=src_ip, user=user, agent=agent
         )
@@ -394,13 +415,9 @@ class AlertEnricher:
         context["first_seen"] = history_data.get("first_seen")
         context["enrichment_sources"].append("historical")
 
-        # Risk Score Calculation
-        context["risk_score"] = self._calculate_risk_score(alert, context)
-
-        # Attack Classification
-        context["attack_classification"] = self._classify_attack(alert, context)
-
-        # Index for RAG if enabled
+    def _maybe_add_rag_index(
+        self, context: Dict[str, Any], alert: Dict[str, Any], index_for_rag: Optional[bool]
+    ) -> None:
         should_index = (
             index_for_rag if index_for_rag is not None else self.enable_rag_indexing
         )
@@ -409,8 +426,6 @@ class AlertEnricher:
             context["rag_indexed"] = rag_result
             if rag_result:
                 context["enrichment_sources"].append("rag_indexed")
-
-        return context
 
     def _should_index_alert(self, alert: Dict[str, Any]) -> bool:
         """
@@ -529,22 +544,25 @@ class AlertEnricher:
 
         # Geographic risk
         geo = context.get("geolocation", {})
-        high_risk_countries = ["CN", "RU", "KP", "IR"]
-        if geo.get("country_code") in high_risk_countries:
+        if geo.get("country_code") in HIGH_RISK_COUNTRIES:
             score += 10
             factors.append(f"High-risk geography ({geo.get('country_code')}): +10")
 
         return {
             "score": min(score, 100),
-            "level": "Critical"
-            if score >= 80
-            else "High"
-            if score >= 60
-            else "Medium"
-            if score >= 40
-            else "Low",
+            "level": self._risk_level(score),
             "factors": factors,
         }
+
+    @staticmethod
+    def _risk_level(score: float) -> str:
+        if score >= 80:
+            return "Critical"
+        if score >= 60:
+            return "High"
+        if score >= 40:
+            return "Medium"
+        return "Low"
 
     def _classify_attack(
         self, alert: Dict[str, Any], context: Dict[str, Any]

@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from alert_enricher import AlertEnricher
 from ai_client import AIClient
 from config_loader import enforce_security_posture, load_settings, resolve_runtime_mode
+from utils import extract_alert_fields, get_severity_color, get_severity_label
 from wazuh_client import WazuhClient
 
 logger = logging.getLogger(__name__)
@@ -170,14 +171,14 @@ class AlertAnalyzer:
 
     def analyze(self, alert: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze a security alert and return enriched analysis."""
-        rule_id = str(alert.get("rule", {}).get("id", "unknown"))
-        rule_description = alert.get("rule", {}).get("description", "Unknown alert")
-        severity = alert.get("rule", {}).get("level", 0)
-        timestamp = alert.get("timestamp", datetime.now().isoformat())
-        agent_name = alert.get("agent", {}).get("name", "unknown-agent")
-
-        src_ip = alert.get("data", {}).get("srcip") or alert.get("data", {}).get("src_ip")
-        user = alert.get("data", {}).get("dstuser") or alert.get("data", {}).get("user")
+        alert_fields = extract_alert_fields(alert)
+        rule_id = str(alert_fields["rule_id"])
+        rule_description = alert_fields["rule_description"]
+        severity = alert_fields["severity"]
+        timestamp = alert_fields["timestamp"] or datetime.now().isoformat()
+        agent_name = alert_fields["agent_name"]
+        src_ip = alert_fields["src_ip"]
+        user = alert_fields["user"]
 
         mitre_ids = alert.get("rule", {}).get("mitre", {}).get("id", [])
         mitre_id = mitre_ids[0] if mitre_ids else None
@@ -200,18 +201,8 @@ class AlertAnalyzer:
                 raise RuntimeError(message)
             logger.warning(message)
 
-        if severity >= 12:
-            severity_label = "CRITICAL"
-            severity_color = Colors.RED
-        elif severity >= 10:
-            severity_label = "HIGH"
-            severity_color = Colors.RED
-        elif severity >= 7:
-            severity_label = "MEDIUM"
-            severity_color = Colors.YELLOW
-        else:
-            severity_label = "LOW"
-            severity_color = Colors.GREEN
+        severity_label = get_severity_label(severity)
+        severity_color = get_severity_color(severity)
 
         return {
             "alert_title": ai_analysis.get("title", rule_description),
@@ -333,9 +324,14 @@ def analysis_to_markdown(analysis: Dict[str, Any]) -> str:
 
     lines.extend(["## Context", ""])
     context = analysis.get("context", {})
-    lines.append(f"- Source IP: `{analysis.get('source_ip')}`") if analysis.get("source_ip") else None
-    lines.append(f"- Target System: `{analysis.get('agent')}`") if analysis.get("agent") else None
-    lines.append(f"- User: `{analysis.get('user')}`") if analysis.get("user") else None
+    optional_context_lines = [
+        (analysis.get("source_ip"), f"- Source IP: `{analysis.get('source_ip')}`"),
+        (analysis.get("agent"), f"- Target System: `{analysis.get('agent')}`"),
+        (analysis.get("user"), f"- User: `{analysis.get('user')}`"),
+    ]
+    for is_present, line in optional_context_lines:
+        if is_present:
+            lines.append(line)
     lines.append(f"- Related Events: `{context.get('related_events', 0)}`")
     if context.get("first_seen"):
         lines.append(f"- First Seen: `{context.get('first_seen')}`")

@@ -12,6 +12,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
+from utils import extract_alert_fields, generate_mock_response, parse_json_response
+
 # RAG Integration
 try:
     from rag_retriever import get_rag_retriever
@@ -35,22 +37,7 @@ class BaseLLMClient(ABC):
 
     def _mock_response(self, prompt: str = "") -> str:
         """Return a mock response when the LLM API is not available."""
-        return json.dumps(
-            {
-                "title": "Security Alert Detected",
-                "summary": "A security event was detected that requires investigation.",
-                "investigation_steps": [
-                    "Review the alert details",
-                    "Check related events",
-                    "Assess potential impact",
-                ],
-                "recommended_actions": [
-                    "[IMMEDIATE] Investigate the alert",
-                    "[SHORT-TERM] Review security controls",
-                    "[LONG-TERM] Update detection rules",
-                ],
-            }
-        )
+        return generate_mock_response(prompt)
 
 
 class MockLLMClient(BaseLLMClient):
@@ -366,18 +353,10 @@ Format your response as JSON with these keys:
 
         try:
             response = self.client.generate(prompt, self.system_prompt)
-
-            try:
-                if "```json" in response:
-                    json_str = response.split("```json")[1].split("```")[0]
-                elif "```" in response:
-                    json_str = response.split("```")[1].split("```")[0]
-                else:
-                    json_str = response
-
-                analysis = json.loads(json_str.strip())
+            analysis = parse_json_response(response)
+            if analysis is not None:
                 analysis_method = "llm"
-            except json.JSONDecodeError:
+            else:
                 analysis = self._parse_text_response(response, alert)
                 analysis_method = "llm_text_parse"
 
@@ -509,12 +488,12 @@ Format your response as valid JSON.
         self, alert: Dict[str, Any], context: Dict[str, Any], mitre_info: Dict[str, str]
     ) -> Dict[str, Any]:
         """Generate a rule-based analysis when AI is unavailable."""
-        rule_id = str(alert.get("rule", {}).get("id", "unknown"))
-        rule_desc = alert.get("rule", {}).get("description", "Security Alert")
-        severity = alert.get("rule", {}).get("level", 0)
-
-        src_ip = alert.get("data", {}).get("srcip", "")
-        user = alert.get("data", {}).get("dstuser", "")
+        alert_fields = extract_alert_fields(alert)
+        rule_id = str(alert_fields["rule_id"])
+        rule_desc = alert_fields["rule_description"]
+        severity = alert_fields["severity"]
+        src_ip = alert_fields["src_ip"] or ""
+        user = alert_fields["user"] or ""
 
         if "brute force" in rule_desc.lower():
             title = f"SSH Brute Force Attack{f' from {src_ip}' if src_ip else ''}"

@@ -125,6 +125,15 @@ python src/detect_anomalies.py --demo --threshold 2.0
 python src/detect_anomalies.py --config config/settings.yaml
 ```
 
+### Testing
+
+```bash
+# Run the Python test suite from the repo root
+pytest -q
+```
+
+The repo disables the host-injected `pytest-rerunfailures` plugin in `../pytest.ini` so plain `pytest` works reliably even when that plugin is installed globally.
+
 ### Example Alert Analysis Output
 
 ```
