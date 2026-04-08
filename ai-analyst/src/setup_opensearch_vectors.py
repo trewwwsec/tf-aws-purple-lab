@@ -40,9 +40,9 @@ try:
         resolve_runtime_mode,
     )
 except Exception as import_error:  # pragma: no cover - environment-dependent
-    VectorStore = Any
-    EmbeddingService = Any
-    WazuhClient = Any
+    VectorStore = Any  # type: ignore[misc,assignment]
+    EmbeddingService = Any  # type: ignore[misc,assignment]
+    WazuhClient = Any  # type: ignore[misc,assignment]
     _IMPORT_ERROR = import_error
 
 logging.basicConfig(
@@ -95,7 +95,7 @@ def index_playbooks(
     indexed_count = 0
 
     # Define playbook metadata based on filenames
-    playbook_metadata = {
+    playbook_metadata: dict[str, dict[str, Any]] = {
         "ssh-brute-force.md": {
             "id": "IR-PB-001",
             "title": "SSH Brute Force Response",
@@ -208,7 +208,7 @@ def index_threat_intel(
     logger.info("Indexing threat intelligence indicators...")
 
     # Sample threat intel data
-    threat_indicators = [
+    threat_indicators: list[dict[str, Any]] = [
         {
             "value": "203.0.113.45",
             "type": "ip",

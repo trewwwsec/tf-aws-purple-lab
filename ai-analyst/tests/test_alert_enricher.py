@@ -20,6 +20,11 @@ class _EmptyWazuhClient:
         return []
 
 
+class _UnexpectedHistoricalLookupClient:
+    def search_events(self, **kwargs):
+        raise AssertionError("historical lookup should be skipped")
+
+
 class TestAlertEnricher(unittest.TestCase):
     def test_mock_threat_intelligence_known_bad_ip(self):
         client = ThreatIntelligenceClient()
@@ -79,6 +84,27 @@ class TestAlertEnricher(unittest.TestCase):
         )
         self.assertIn("risk_score", result)
         self.assertIn("attack_classification", result)
+
+    def test_enrich_can_skip_historical_queries(self):
+        enricher = AlertEnricher(
+            enable_rag_indexing=False,
+            config={},
+            runtime_mode="strict",
+            wazuh_client=_UnexpectedHistoricalLookupClient(),
+        )
+
+        result = enricher.enrich(
+            {
+                "rule": {"level": 10, "description": "SSH brute force attack detected"},
+                "agent": {"name": "host-1"},
+                "data": {"srcip": "203.0.113.45", "dstuser": "root"},
+            },
+            include_historical=False,
+        )
+
+        self.assertEqual(result["related_events"], 0)
+        self.assertIsNone(result["first_seen"])
+        self.assertNotIn("historical", result["enrichment_sources"])
 
 
 if __name__ == "__main__":

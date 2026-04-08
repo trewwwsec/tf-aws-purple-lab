@@ -239,7 +239,12 @@ class HistoricalAnalyzer:
     def _summarize_live_events(
         self, events: List[Dict[str, Any]], source_ip: Optional[str]
     ) -> Dict[str, Any]:
-        timestamps = [e.get("timestamp") for e in events if e.get("timestamp")]
+        timestamps: List[str] = [
+            timestamp
+            for e in events
+            for timestamp in [e.get("timestamp")]
+            if isinstance(timestamp, str) and timestamp
+        ]
         unique_rules = {
             str(e.get("rule", {}).get("id"))
             for e in events
@@ -320,14 +325,17 @@ class AlertEnricher:
 
         # RAG indexing
         self.enable_rag_indexing = enable_rag_indexing and RAG_AVAILABLE
-        self._vector_store = None
-        self._embedding_service = None
+        self._vector_store: Any = None
+        self._embedding_service: Any = None
 
         if self.enable_rag_indexing:
             self._initialize_rag_indexing()
 
     def enrich(
-        self, alert: Dict[str, Any], index_for_rag: bool = None
+        self,
+        alert: Dict[str, Any],
+        index_for_rag: bool = None,
+        include_historical: bool = True,
     ) -> Dict[str, Any]:
         """
         Enrich an alert with additional context and optionally index for RAG.
@@ -340,7 +348,7 @@ class AlertEnricher:
         Returns:
             Enriched context dictionary
         """
-        context = {
+        context: Dict[str, Any] = {
             "enrichment_timestamp": datetime.now().isoformat(),
             "enrichment_sources": [],
         }
@@ -351,7 +359,13 @@ class AlertEnricher:
         agent = alert.get("agent", {}).get("name")
 
         self._add_network_context(context, src_ip)
-        self._add_historical_context(context, src_ip, user, agent)
+        self._add_historical_context(
+            context,
+            src_ip,
+            user,
+            agent,
+            include_historical=include_historical,
+        )
         context["risk_score"] = self._calculate_risk_score(alert, context)
         context["attack_classification"] = self._classify_attack(alert, context)
         self._maybe_add_rag_index(context, alert, index_for_rag)
@@ -375,6 +389,8 @@ class AlertEnricher:
                 prune_interval_writes=embedding_cfg.get("prune_interval_writes", 200),
                 reset=True,
             )
+            if self._embedding_service is None:
+                raise RuntimeError("embedding service unavailable")
             os_host = opensearch_cfg.get("host")
             os_port = opensearch_cfg.get("port")
             os_hosts = [f"{os_host}:{os_port}"] if os_host and os_port else None
@@ -406,14 +422,18 @@ class AlertEnricher:
         src_ip: Optional[str],
         user: Optional[str],
         agent: Optional[str],
+        include_historical: bool = True,
     ) -> None:
-        history_data = self.history.get_related_events(
-            source_ip=src_ip, user=user, agent=agent
-        )
+        if include_historical:
+            history_data = self.history.get_related_events(
+                source_ip=src_ip, user=user, agent=agent
+            )
+            context["enrichment_sources"].append("historical")
+        else:
+            history_data = self.history._empty_result()
         context["historical"] = history_data
         context["related_events"] = history_data.get("total_events", 0)
         context["first_seen"] = history_data.get("first_seen")
-        context["enrichment_sources"].append("historical")
 
     def _maybe_add_rag_index(
         self, context: Dict[str, Any], alert: Dict[str, Any], index_for_rag: Optional[bool]
@@ -491,7 +511,7 @@ class AlertEnricher:
         Returns:
             Dictionary with RAG status information
         """
-        status = {
+        status: Dict[str, Any] = {
             "rag_available": RAG_AVAILABLE,
             "rag_enabled": self.enable_rag_indexing,
             "vector_store_connected": False,

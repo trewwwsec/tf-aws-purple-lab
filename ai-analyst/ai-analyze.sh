@@ -20,41 +20,4 @@ if [[ ! -s "${PAYLOAD_FILE}" ]]; then
   exit 1
 fi
 
-ALERT_ID="$(
-python3 - "${PAYLOAD_FILE}" <<'PY'
-import json
-import sys
-
-def dig(obj, keys):
-    cur = obj
-    for key in keys:
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(key)
-    return cur
-
-path = sys.argv[1]
-with open(path, "r", encoding="utf-8") as f:
-    payload = json.load(f)
-
-candidates = [
-    ("parameters", "alert", "id"),
-    ("alert", "id"),
-    ("id",),
-]
-
-for keys in candidates:
-    value = dig(payload, keys)
-    if value not in (None, ""):
-        print(str(value))
-        raise SystemExit(0)
-
-print("")
-PY
-)"
-
-if [[ -n "${ALERT_ID}" ]]; then
-  exec python3 "${ANALYZE_SCRIPT}" --alert-id "${ALERT_ID}" --output json --mode "${RUNTIME_MODE}"
-fi
-
 exec python3 "${ANALYZE_SCRIPT}" --alert-file "${PAYLOAD_FILE}" --output json --mode "${RUNTIME_MODE}"

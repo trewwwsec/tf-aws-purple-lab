@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 from analyze_alert import AlertAnalyzer
 from config_loader import enforce_security_posture, load_settings, resolve_runtime_mode
+from utils import normalize_alert_payload
 
 logger = logging.getLogger(__name__)
 
@@ -153,25 +154,43 @@ class APIHandler(BaseHTTPRequestHandler):
             _json_response(self, 500, {"error": "analysis_failed", "message": str(e)})
 
     def _handle_analyze(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        analyzer = self.analyzer
+        if analyzer is None:
+            raise ValueError("analyzer_not_initialized")
+
         raw_alert = payload.get("alert")
         alert_id = payload.get("alert_id")
         recent = payload.get("recent")
+        direct_alert = None
+
+        if raw_alert in (None, "") and alert_id in (None, "") and recent in (None, ""):
+            try:
+                direct_alert = normalize_alert_payload(payload)
+            except ValueError:
+                direct_alert = None
 
         requested = sum(
-            1 for value in (raw_alert, alert_id, recent) if value not in (None, "")
+            1
+            for value in (raw_alert, alert_id, recent, direct_alert)
+            if value not in (None, "")
         )
         if requested != 1:
-            raise ValueError("provide exactly one of: alert, alert_id, recent")
+            raise ValueError(
+                "provide exactly one of: alert, alert_id, recent, or a direct alert payload"
+            )
+
+        if isinstance(direct_alert, dict):
+            return {"analysis": analyzer.analyze(direct_alert)}
 
         if isinstance(raw_alert, dict):
-            return {"analysis": self.analyzer.analyze(raw_alert)}
+            return {"analysis": analyzer.analyze(normalize_alert_payload(raw_alert))}
 
         if alert_id is not None:
             alert_id = str(alert_id)
-            alert = _lookup_alert(self.analyzer, alert_id)
+            alert = _lookup_alert(analyzer, alert_id)
             if not alert:
                 raise ValueError(f"alert not found: {alert_id}")
-            return {"analysis": self.analyzer.analyze(alert)}
+            return {"analysis": analyzer.analyze(alert)}
 
         if recent is None:
             raise ValueError("invalid request")
@@ -184,8 +203,8 @@ class APIHandler(BaseHTTPRequestHandler):
         if recent_count < 1 or recent_count > 200:
             raise ValueError("recent must be in range [1, 200]")
 
-        alerts = self.analyzer.wazuh_client.get_alerts(limit=recent_count)
-        analyses: List[Dict[str, Any]] = [self.analyzer.analyze(a) for a in alerts]
+        alerts = analyzer.wazuh_client.get_alerts(limit=recent_count)
+        analyses: List[Dict[str, Any]] = [analyzer.analyze(a) for a in alerts]
         return {"analyses": analyses, "count": len(analyses)}
 
 

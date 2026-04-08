@@ -365,7 +365,7 @@ class BaselineEngine:
         Returns:
             List of deviation dictionaries with category, z_score, details
         """
-        deviations = []
+        deviations: List[Dict[str, Any]] = []
 
         # Group events by agent
         agent_events: Dict[str, List[Dict]] = defaultdict(list)
@@ -387,7 +387,7 @@ class BaselineEngine:
         self, baseline: AgentBaseline, events: List[Dict]
     ) -> List[Dict[str, Any]]:
         """Check events for a single agent against its baseline."""
-        deviations = []
+        deviations: List[Dict[str, Any]] = []
         window = self._collect_detection_window(baseline, events, deviations)
         self._append_window_zscore_deviations(baseline, window, deviations)
         self._append_new_entity_deviations(baseline, window, deviations)

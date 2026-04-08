@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from anomaly_detector import AnomalyDetector
+from wazuh_client import WazuhClient
 
 
 class _DummyWazuhClient:
@@ -90,6 +91,11 @@ class TestAnomalyConfigFidelity(unittest.TestCase):
         self.assertEqual([e["id"] for e in events], ["1"])
         self.assertTrue(dummy.calls)
         self.assertIn("timestamp>", dummy.calls[0]["q"])
+
+    def test_detector_keeps_wazuh_client_for_live_queries(self):
+        detector = self._build_detector()
+
+        self.assertIsInstance(detector.wazuh_client, WazuhClient)
 
 
 if __name__ == "__main__":
