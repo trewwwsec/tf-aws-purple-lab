@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from utils import extract_alert_fields, generate_mock_response, parse_json_response
 
@@ -228,7 +228,7 @@ class AIClient:
         self.system_prompt = self._load_system_prompt()
 
         self.fallback_used = False
-        self.last_error = None
+        self.last_error: Optional[str] = None
 
         rag_cfg = self.config.get("rag", {}) if isinstance(self.config, dict) else {}
         rag_enabled = rag_cfg.get("enabled", True)

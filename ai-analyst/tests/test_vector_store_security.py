@@ -6,6 +6,7 @@ import os
 import sys
 import types
 import unittest
+from typing import Any
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -22,7 +23,7 @@ class _OpenSearchRecorder:
 
 
 if "opensearchpy" not in sys.modules:
-    stub = types.ModuleType("opensearchpy")
+    stub: Any = types.ModuleType("opensearchpy")
     stub.OpenSearch = _OpenSearchRecorder
     stub.helpers = types.SimpleNamespace()
     sys.modules["opensearchpy"] = stub

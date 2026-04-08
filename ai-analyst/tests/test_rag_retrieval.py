@@ -5,12 +5,13 @@ import os
 import sys
 import types
 import unittest
+from typing import Any
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # Provide lightweight stub for environments without opensearchpy installed.
 if "opensearchpy" not in sys.modules:
-    stub = types.ModuleType("opensearchpy")
+    stub: Any = types.ModuleType("opensearchpy")
 
     class _OpenSearchStub:
         pass

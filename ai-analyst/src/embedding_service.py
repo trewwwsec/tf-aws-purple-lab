@@ -11,7 +11,7 @@ import os
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 logger = logging.getLogger(__name__)
 
@@ -387,7 +387,7 @@ class EmbeddingService:
                 parts.append(f"{key}: {data[key]}")
 
         text = " | ".join(filter(None, parts))
-        return self.embed(text)
+        return cast(List[float], self.embed(text))
 
     def embed_threat_intel(self, ioc: dict) -> List[float]:
         """
@@ -400,7 +400,7 @@ class EmbeddingService:
             ioc.get("description", ""),
         ]
         text = " | ".join(filter(None, parts))
-        return self.embed(text)
+        return cast(List[float], self.embed(text))
 
     def embed_playbook(self, playbook: dict) -> List[float]:
         """
@@ -415,7 +415,7 @@ class EmbeddingService:
         if mitre:
             parts.append(f"MITRE: {', '.join(mitre)}")
         text = " | ".join(filter(None, parts))
-        return self.embed(text)
+        return cast(List[float], self.embed(text))
 
     def similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
         """
@@ -484,7 +484,7 @@ if __name__ == "__main__":
     print(f"Model dimension: {service.dimension}")
 
     text = "SSH brute force attack detected from IP 203.0.113.45"
-    embedding = service.embed(text)
+    embedding = cast(List[float], service.embed(text))
     print(f"Single embedding shape: {len(embedding)}")
     print(f"First 5 values: {embedding[:5]}")
 
@@ -493,7 +493,7 @@ if __name__ == "__main__":
         "PowerShell encoded command execution",
         "Sudo privilege escalation attempt",
     ]
-    embeddings = service.embed(texts)
+    embeddings = cast(List[List[float]], service.embed(texts))
     print(f"Batch embeddings count: {len(embeddings)}")
 
     sim = service.similarity(embedding, embeddings[0])

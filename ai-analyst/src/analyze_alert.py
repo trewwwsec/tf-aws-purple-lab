@@ -17,7 +17,12 @@ from typing import Any, Dict, List, Optional
 from alert_enricher import AlertEnricher
 from ai_client import AIClient
 from config_loader import enforce_security_posture, load_settings, resolve_runtime_mode
-from utils import extract_alert_fields, get_severity_color, get_severity_label
+from utils import (
+    extract_alert_fields,
+    get_severity_color,
+    get_severity_label,
+    normalize_alert_payload,
+)
 from wazuh_client import WazuhClient
 
 logger = logging.getLogger(__name__)
@@ -169,7 +174,11 @@ class AlertAnalyzer:
             full_path = os.path.join(self.playbook_base, playbook)
         return {"playbook": playbook, "playbook_path": full_path}
 
-    def analyze(self, alert: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(
+        self,
+        alert: Dict[str, Any],
+        include_historical: bool = True,
+    ) -> Dict[str, Any]:
         """Analyze a security alert and return enriched analysis."""
         alert_fields = extract_alert_fields(alert)
         rule_id = str(alert_fields["rule_id"])
@@ -184,7 +193,7 @@ class AlertAnalyzer:
         mitre_id = mitre_ids[0] if mitre_ids else None
         mitre_info = get_mitre_info(mitre_id) if mitre_id else {}
 
-        context = self.enricher.enrich(alert)
+        context = self.enricher.enrich(alert, include_historical=include_historical)
         ai_analysis = self.ai_client.analyze_alert(
             alert=alert,
             context=context,
@@ -537,8 +546,8 @@ def main():
 
         if args.alert_file:
             with open(args.alert_file, "r", encoding="utf-8") as f:
-                alert = json.load(f)
-            analysis = analyzer.analyze(alert)
+                alert = normalize_alert_payload(json.load(f))
+            analysis = analyzer.analyze(alert, include_historical=False)
             if args.report is not None:
                 _render_report([analysis], args.report)
             else:

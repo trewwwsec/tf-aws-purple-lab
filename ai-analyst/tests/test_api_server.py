@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from api_server import APIHandler, _extract_bearer_token
+from utils import normalize_alert_payload
 
 
 class _DummyWazuhClient:
@@ -42,6 +43,22 @@ class _DummyAnalyzer:
 
 
 class APIHandlerTests(unittest.TestCase):
+    def test_normalize_alert_payload_accepts_parameters_wrapper(self):
+        wrapped = {
+            "parameters": {
+                "alert": {"id": "evt-9", "rule": {"id": "200020", "description": "test"}}
+            }
+        }
+
+        normalized = normalize_alert_payload(wrapped)
+
+        self.assertEqual(normalized["id"], "evt-9")
+        self.assertEqual(normalized["rule"]["id"], "200020")
+
+    def test_normalize_alert_payload_rejects_unsupported_object(self):
+        with self.assertRaisesRegex(ValueError, "contain one at alert / parameters.alert"):
+            normalize_alert_payload({"parameters": {"id": "evt-9"}})
+
     def test_extract_bearer_token_is_case_insensitive(self):
         self.assertEqual(_extract_bearer_token("Bearer secret-token"), "secret-token")
         self.assertEqual(_extract_bearer_token("bearer another-token"), "another-token")
@@ -61,6 +78,30 @@ class APIHandlerTests(unittest.TestCase):
         self.assertEqual(analyzer.wazuh_client.alert_ids, ["200020"])
         self.assertEqual(analyzer.wazuh_client.rule_ids, [("200020", 1)])
         self.assertEqual(analyzer.analyzed, [fallback_alert])
+
+    def test_handle_analyze_unwraps_top_level_active_response_payload(self):
+        raw_alert = {"id": "evt-2", "rule": {"id": "200021"}}
+        analyzer = _DummyAnalyzer(_DummyWazuhClient())
+        handler = APIHandler.__new__(APIHandler)
+        handler.analyzer = analyzer
+
+        response = handler._handle_analyze({"parameters": {"alert": raw_alert}})
+
+        self.assertEqual(response["analysis"]["rule_id"], "200021")
+        self.assertEqual(analyzer.analyzed, [raw_alert])
+        self.assertEqual(analyzer.wazuh_client.alert_ids, [])
+        self.assertEqual(analyzer.wazuh_client.rule_ids, [])
+
+    def test_handle_analyze_accepts_direct_raw_alert_payload(self):
+        raw_alert = {"id": "evt-3", "rule": {"id": "200022"}}
+        analyzer = _DummyAnalyzer(_DummyWazuhClient())
+        handler = APIHandler.__new__(APIHandler)
+        handler.analyzer = analyzer
+
+        response = handler._handle_analyze(raw_alert)
+
+        self.assertEqual(response["analysis"]["rule_id"], "200022")
+        self.assertEqual(analyzer.analyzed, [raw_alert])
 
     def test_handle_analyze_recent_validates_range(self):
         analyzer = _DummyAnalyzer(_DummyWazuhClient(recent_alerts=[]))
