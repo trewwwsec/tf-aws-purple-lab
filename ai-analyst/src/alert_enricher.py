@@ -475,12 +475,21 @@ class AlertEnricher:
 
         return True
 
-    def _index_alert_for_rag(self, alert: Dict[str, Any]) -> bool:
+    def _index_alert_for_rag(
+        self,
+        alert: Dict[str, Any],
+        analysis_metadata: Optional[Dict[str, Any]] = None,
+        source_path: str = "unknown",
+        playbook: Optional[str] = None,
+    ) -> bool:
         """
         Index an alert for RAG retrieval.
 
         Args:
             alert: The Wazuh alert to index
+            analysis_metadata: Optional AI analysis metadata to store with the alert
+            source_path: Ingestion path that produced the alert analysis
+            playbook: Resolved playbook name for this alert
 
         Returns:
             True if indexed successfully
@@ -489,11 +498,14 @@ class AlertEnricher:
             return False
 
         try:
-            # Generate embedding
             embedding = self._embedding_service.embed_alert(alert)
-
-            # Index in vector store
-            success = self._vector_store.index_alert(alert, embedding)
+            success = self._vector_store.index_alert(
+                alert,
+                embedding,
+                analysis_metadata=analysis_metadata,
+                source_path=source_path,
+                playbook=playbook,
+            )
 
             if success:
                 logger.debug(f"Indexed alert {alert.get('id')} for RAG")
@@ -503,6 +515,29 @@ class AlertEnricher:
         except Exception as e:
             logger.error(f"Failed to index alert for RAG: {e}")
             return False
+
+    def index_analyzed_alert(
+        self,
+        alert: Dict[str, Any],
+        analysis: Dict[str, Any],
+        source_path: str = "unknown",
+    ) -> bool:
+        """Index an already-analyzed alert without affecting analysis success."""
+        if not self.enable_rag_indexing or not self._should_index_alert(alert):
+            return False
+
+        metadata = {
+            "alert_title": analysis.get("alert_title"),
+            "severity": analysis.get("severity"),
+            "severity_label": analysis.get("severity_label"),
+            "analysis_metadata": analysis.get("analysis_metadata", {}),
+        }
+        return self._index_alert_for_rag(
+            alert,
+            analysis_metadata=metadata,
+            source_path=source_path,
+            playbook=analysis.get("playbook"),
+        )
 
     def get_rag_status(self) -> Dict[str, Any]:
         """

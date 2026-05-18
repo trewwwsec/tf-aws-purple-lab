@@ -203,17 +203,21 @@ class APIHandler(BaseHTTPRequestHandler):
             )
 
         if isinstance(direct_alert, dict):
-            return {"analysis": analyzer.analyze(direct_alert)}
+            return {"analysis": analyzer.analyze(direct_alert, source_path="api_direct")}
 
         if isinstance(raw_alert, dict):
-            return {"analysis": analyzer.analyze(normalize_alert_payload(raw_alert))}
+            return {
+                "analysis": analyzer.analyze(
+                    normalize_alert_payload(raw_alert), source_path="api_direct"
+                )
+            }
 
         if alert_id is not None:
             alert_id = str(alert_id)
             alert = _lookup_alert(analyzer, alert_id)
             if not alert:
                 raise ValueError(f"alert not found: {alert_id}")
-            return {"analysis": analyzer.analyze(alert)}
+            return {"analysis": analyzer.analyze(alert, source_path="manual_lookup")}
 
         if recent is None:
             raise ValueError("invalid request")
