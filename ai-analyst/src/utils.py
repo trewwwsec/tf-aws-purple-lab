@@ -67,6 +67,53 @@ def extract_alert_fields(alert: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def is_wazuh_alert(payload: Any) -> bool:
+    """
+    Return True when the payload looks like a Wazuh alert object.
+
+    The shape intentionally stays conservative so wrapper objects are not
+    mistaken for alerts.
+    """
+    if not isinstance(payload, dict):
+        return False
+
+    rule = payload.get("rule")
+    if not isinstance(rule, dict):
+        return False
+
+    return any(key in rule for key in ("id", "description", "level"))
+
+
+def normalize_alert_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extract the actual Wazuh alert from a raw alert or supported wrapper.
+
+    Supported shapes:
+    - raw alert object
+    - {"alert": {...}}
+    - {"parameters": {"alert": {...}}}
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("alert payload must be a JSON object")
+
+    if is_wazuh_alert(payload):
+        return payload
+
+    direct_alert = payload.get("alert")
+    if isinstance(direct_alert, dict):
+        return normalize_alert_payload(direct_alert)
+
+    parameters = payload.get("parameters")
+    if isinstance(parameters, dict):
+        nested_alert = parameters.get("alert")
+        if isinstance(nested_alert, dict):
+            return normalize_alert_payload(nested_alert)
+
+    raise ValueError(
+        "json payload must be a raw alert object or contain one at alert / parameters.alert"
+    )
+
+
 def get_severity_label(severity: int) -> str:
     """
     Convert a severity level to a human-readable label.

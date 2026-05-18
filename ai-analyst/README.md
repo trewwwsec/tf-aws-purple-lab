@@ -307,19 +307,37 @@ Events → Aggregate Features → Compare to Baselines → Flag Deviations
 # Start API server
 python src/api_server.py
 
-# Analyze alert via API
+# Analyze a pushed alert payload via API
 curl -X POST http://localhost:8080/analyze \
   -H "Authorization: Bearer $AI_ANALYST_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"alert_id": "200001"}'
+  -d '{
+    "alert": {
+      "id": "evt-1",
+      "timestamp": "2026-04-08T01:00:00Z",
+      "rule": {
+        "id": "200001",
+        "level": 10,
+        "description": "SSH brute force attack detected",
+        "mitre": {"id": ["T1110"]}
+      },
+      "agent": {"id": "001", "name": "linux-endpoint-01"},
+      "data": {"srcip": "203.0.113.45", "dstuser": "root"}
+    }
+  }'
 
 # Health check
 curl http://localhost:8080/health
 ```
 
+`alert_id` and `recent` are still supported for manual/API-driven lookups, but the
+Wazuh active-response path is intended to push the detected alert payload directly
+into the analyzer instead of forcing a pull back from the Wazuh API.
+
 ### Wazuh Integration
 
-Add to Wazuh's active response to auto-analyze alerts:
+Add to Wazuh's active response to auto-analyze alerts. The helper reads the alert
+payload from stdin and analyzes that pushed payload directly:
 
 ```xml
 <command>
@@ -344,6 +362,9 @@ scp ai-analyze.sh wazuh@<manager>:/var/ossec/active-response/bin/ai-analyze.sh
 # Restrict permissions
 ssh wazuh@<manager> "chmod 750 /var/ossec/active-response/bin/ai-analyze.sh"
 ```
+
+The anomaly detector is separate from this hook path and still queries the Wazuh
+API for live event collection and baseline comparison.
 
 ## 📊 Supported Alert Types
 

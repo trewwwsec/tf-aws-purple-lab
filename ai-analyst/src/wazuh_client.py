@@ -54,10 +54,10 @@ class WazuhClient:
         self.runtime_mode = runtime_mode
         self.allow_mock = runtime_mode == "demo"
         self.base_url = f"https://{self.host}:{self.port}"
-        self.token = None
-        self.token_expires = None
+        self.token: Optional[str] = None
+        self.token_expires: Optional[datetime] = None
 
-    def _get_token(self) -> str:
+    def _get_token(self) -> Optional[str]:
         """
         Get or refresh the authentication token.
 
@@ -106,7 +106,11 @@ class WazuhClient:
         )
 
     def _request(
-        self, method: str, endpoint: str, params: Dict = None, data: Dict = None
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Make an authenticated request to the Wazuh API.
@@ -181,7 +185,7 @@ class WazuhClient:
         if not token:
             return self._get_mock_alerts(limit)
 
-        params = {"limit": limit, "offset": offset}
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
 
         if level:
             params["level"] = level
@@ -223,7 +227,7 @@ class WazuhClient:
         if not token:
             return self._get_mock_agents()
 
-        params = {}
+        params: Dict[str, Any] = {}
         if status:
             params["status"] = status
 
