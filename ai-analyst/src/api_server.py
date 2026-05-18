@@ -4,7 +4,9 @@ AI Analyst API server.
 
 Provides authenticated endpoints for alert analysis:
 - GET /health
+- GET /feedback?alert_id=<id>
 - POST /analyze
+- POST /feedback
 """
 
 import argparse
@@ -14,10 +16,11 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from analyze_alert import AlertAnalyzer
 from config_loader import enforce_security_posture, load_settings, resolve_runtime_mode
+from feedback_store import FeedbackStore, FeedbackValidationError
 from utils import normalize_alert_payload
 
 logger = logging.getLogger(__name__)
@@ -57,6 +60,7 @@ def _lookup_alert(analyzer: AlertAnalyzer, alert_id: str) -> Optional[Dict[str, 
 
 class APIHandler(BaseHTTPRequestHandler):
     analyzer: Optional[AlertAnalyzer] = None
+    feedback_store: Optional[FeedbackStore] = None
     require_auth: bool = True
     auth_token: Optional[str] = None
     enable_cors: bool = False
@@ -87,7 +91,18 @@ class APIHandler(BaseHTTPRequestHandler):
         return bool(api_token and api_token == expected)
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path == "/feedback":
+            if not self._authorized():
+                _json_response(self, 401, {"error": "unauthorized"})
+                return
+            params = parse_qs(parsed.query)
+            alert_id = params.get("alert_id", [""])[0]
+            store = self.feedback_store or FeedbackStore()
+            _json_response(self, 200, {"feedback": store.list_for_alert(alert_id), "alert_id": alert_id})
+            return
+
         if path != "/health":
             _json_response(self, 404, {"error": "not_found"})
             return
@@ -109,7 +124,7 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path != "/analyze":
+        if path not in {"/analyze", "/feedback"}:
             _json_response(self, 404, {"error": "not_found"})
             return
 
@@ -117,7 +132,7 @@ class APIHandler(BaseHTTPRequestHandler):
             _json_response(self, 401, {"error": "unauthorized"})
             return
 
-        if not self.analyzer:
+        if path == "/analyze" and not self.analyzer:
             _json_response(self, 500, {"error": "analyzer_not_initialized"})
             return
 
@@ -145,13 +160,21 @@ class APIHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            if path == "/feedback":
+                store = self.feedback_store or FeedbackStore()
+                entry = store.add(payload)
+                _json_response(self, 201, {"feedback": entry})
+                return
+
             response = self._handle_analyze(payload)
             _json_response(self, 200, response)
+        except FeedbackValidationError as e:
+            _json_response(self, 400, {"error": str(e)})
         except ValueError as e:
             _json_response(self, 400, {"error": str(e)})
         except Exception as e:
-            logger.exception("API analyze request failed")
-            _json_response(self, 500, {"error": "analysis_failed", "message": str(e)})
+            logger.exception("API request failed")
+            _json_response(self, 500, {"error": "request_failed", "message": str(e)})
 
     def _handle_analyze(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         analyzer = self.analyzer
@@ -253,6 +276,8 @@ def main() -> int:
     port = args.port or int(api_cfg.get("port", 8080))
     require_auth = bool(api_cfg.get("require_auth", True))
     enable_cors = bool(api_cfg.get("enable_cors", False))
+    feedback_cfg = settings.get("feedback", {}) if isinstance(settings.get("feedback"), dict) else {}
+    feedback_store = FeedbackStore(feedback_cfg.get("path"))
 
     auth_token = (api_cfg.get("auth_token") or "").strip()
     if require_auth and not auth_token:
@@ -275,6 +300,7 @@ def main() -> int:
         return 1
 
     APIHandler.analyzer = analyzer
+    APIHandler.feedback_store = feedback_store
     APIHandler.require_auth = require_auth
     APIHandler.auth_token = auth_token
     APIHandler.enable_cors = enable_cors
