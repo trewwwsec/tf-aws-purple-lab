@@ -78,6 +78,43 @@ def print_scan_summary(result: dict):
     print()
 
 
+def print_policy_summary(result: dict):
+    """Print anomaly policy and filtering telemetry when available."""
+    policy = result.get("anomaly_policy") or {}
+    telemetry = result.get("filter_telemetry") or {}
+    category_filter = telemetry.get("category_filter") or {}
+    confidence_filter = telemetry.get("min_confidence_filter") or {}
+    if not policy and not telemetry:
+        return
+
+    print(f"  {Colors.BOLD}Policy{Colors.END}")
+    if policy.get("lookback_hours") is not None:
+        print(f"    Lookback: {policy.get('lookback_hours')}h")
+    print(f"    Z-score threshold: {policy.get('z_score_threshold', 'n/a')}")
+    print(f"    Min confidence: {policy.get('min_confidence', 'n/a')}")
+    disabled = policy.get("disabled_categories") or []
+    if disabled:
+        print(f"    Disabled categories: {', '.join(disabled)}")
+    unknown = policy.get("unknown_category_keys") or []
+    if unknown:
+        print(f"    Unknown category keys ignored: {', '.join(unknown)}")
+
+    if category_filter:
+        print(
+            "    Category filter: "
+            f"{category_filter.get('kept_deviations', 0)}/"
+            f"{category_filter.get('raw_deviations', 0)} deviations kept; "
+            f"{category_filter.get('filtered_by_disabled_category', 0)} filtered"
+        )
+    if confidence_filter:
+        print(
+            "    Confidence filter: "
+            f"{confidence_filter.get('filtered_findings', 0)} findings below "
+            f"{confidence_filter.get('threshold', 'n/a')}"
+        )
+    print()
+
+
 def print_raw_deviations(deviations: list):
     """Print raw statistical deviations."""
     print(f"{Colors.CYAN}{'─' * 66}{Colors.END}")
@@ -177,6 +214,7 @@ def display_results(result: dict):
     """Display full results in terminal format."""
     print_banner()
     print_scan_summary(result)
+    print_policy_summary(result)
 
     if result.get("status") not in ("anomalies_detected",):
         msg = result.get("message", "")

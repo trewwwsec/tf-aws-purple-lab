@@ -404,9 +404,9 @@ API for live event collection and baseline comparison.
 **Version**: 2.0  
 **Status**: Production-Ready
 
-### Anomaly Detector Config Fidelity
+### Anomaly Detector Policy Telemetry
 
-Anomaly detection honors the configured lookback window, category toggles, and `min_confidence` floor. Disabled detector families are removed before AI reasoning, and low-confidence AI findings are filtered from final results.
+Anomaly detection results include an `anomaly_policy` block and `filter_telemetry` so operators can see the effective lookback window, z-score threshold, minimum confidence, enabled/disabled categories, ignored unknown category keys, and how many deviations/findings were filtered by policy. Disabled detector families are removed before AI reasoning, and low-confidence AI findings are filtered from final results.
 
 ### Webhook Notifications
 
