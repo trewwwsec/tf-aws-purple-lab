@@ -3,9 +3,22 @@
 
 import os
 import sys
+import types
 import unittest
+from typing import Any
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+# Provide lightweight stub for environments without opensearchpy installed.
+if "opensearchpy" not in sys.modules:
+    stub: Any = types.ModuleType("opensearchpy")
+
+    class _OpenSearchStub:
+        pass
+
+    stub.OpenSearch = _OpenSearchStub
+    stub.helpers = types.SimpleNamespace()
+    sys.modules["opensearchpy"] = stub
 
 from playbook_chunker import chunk_markdown_playbook
 from rag_retriever import RAGContext
