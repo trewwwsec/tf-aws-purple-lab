@@ -25,6 +25,55 @@ tar -xvf wazuh-install-files.tar
 systemctl enable wazuh-manager
 systemctl start wazuh-manager
 
+%{ if enable_cloudtrail_wazuh_ingestion }
+# Configure Wazuh AWS module for CloudTrail management event ingestion.
+echo "Configuring Wazuh CloudTrail ingestion from S3..."
+cat > /tmp/wazuh-cloudtrail-wodle.xml << 'WAZUHAWS'
+  <!-- Managed by Terraform: CloudTrail -> S3 -> Wazuh aws-s3 ingestion -->
+  <wodle name="aws-s3">
+    <disabled>no</disabled>
+    <interval>10m</interval>
+    <run_on_start>yes</run_on_start>
+    <skip_on_error>yes</skip_on_error>
+    <bucket type="cloudtrail">
+      <name>${cloudtrail_bucket_name}</name>
+%{ if cloudtrail_regions != "" }
+      <regions>${cloudtrail_regions}</regions>
+%{ endif }
+      <remove_from_bucket>no</remove_from_bucket>
+    </bucket>
+  </wodle>
+WAZUHAWS
+
+python3 << 'PYCONF'
+from pathlib import Path
+
+ossec_conf = Path('/var/ossec/etc/ossec.conf')
+wodle = Path('/tmp/wazuh-cloudtrail-wodle.xml').read_text().rstrip()
+config = ossec_conf.read_text()
+start = '  <!-- BEGIN TERRAFORM MANAGED CLOUDTRAIL WAZUH INGESTION -->'
+end = '  <!-- END TERRAFORM MANAGED CLOUDTRAIL WAZUH INGESTION -->'
+managed = f"{start}\n{wodle}\n{end}"
+
+if start in config and end in config:
+    before, rest = config.split(start, 1)
+    _, after = rest.split(end, 1)
+    config = before + managed + after
+else:
+    closing = '</ossec_config>'
+    if closing not in config:
+        raise SystemExit(f'{ossec_conf} does not contain {closing}')
+    config = config.replace(closing, managed + '\n' + closing, 1)
+
+ossec_conf.write_text(config)
+PYCONF
+
+chown root:wazuh /var/ossec/etc/ossec.conf
+chmod 640 /var/ossec/etc/ossec.conf
+systemctl restart wazuh-manager
+echo "CloudTrail ingestion configured for bucket ${cloudtrail_bucket_name}"
+%{ endif }
+
 # Configure centralized agent configuration (Phase 3 & 4)
 echo "Configuring centralized agent settings..."
 cat > /var/ossec/etc/shared/default/agent.conf << 'AGENTCONF'

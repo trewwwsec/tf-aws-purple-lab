@@ -59,3 +59,22 @@ output "macos_cost_warning" {
   description = "Cost warning for macOS endpoint"
   value       = var.enable_macos_endpoint ? "WARNING: $1.083/hour (~$26/day, ~$780/month) - DESTROY WHEN NOT IN USE!" : "macOS endpoint not enabled (no cost)"
 }
+
+output "cloudtrail_wazuh_ingestion" {
+  description = "CloudTrail to Wazuh ingestion resources and free-tier-conscious cost notes"
+  value = var.enable_cloudtrail_wazuh_ingestion ? {
+    enabled        = true
+    bucket_name    = aws_s3_bucket.cloudtrail_logs[0].id
+    trail_arn      = aws_cloudtrail.management_events[0].arn
+    retention_days = var.cloudtrail_log_retention_days
+    multi_region   = var.cloudtrail_multi_region
+    cost_note      = "CloudTrail management events use the first-copy management event path; S3 storage/request charges still apply. Data events, Insights, GuardDuty, and VPC Flow Logs are not enabled by this PR."
+    } : {
+    enabled        = false
+    bucket_name    = null
+    trail_arn      = null
+    retention_days = null
+    multi_region   = null
+    cost_note      = "CloudTrail to Wazuh ingestion is disabled."
+  }
+}

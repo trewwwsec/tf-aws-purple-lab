@@ -34,7 +34,7 @@ This repository is designed as a portfolio-grade SOC engineering project: it sho
 
 | Area | What this project demonstrates |
 |---|---|
-| **Cloud infrastructure** | AWS VPC, public/private subnets, NAT Gateway, EC2, IAM roles, and security groups managed with Terraform. |
+| **Cloud infrastructure** | AWS VPC, public/private subnets, NAT Gateway, EC2, IAM roles, CloudTrail-to-S3 ingestion, and security groups managed with Terraform. |
 | **SIEM operations** | Wazuh manager, indexer, dashboard, endpoint agents, custom rule deployment, and alert validation. |
 | **Detection engineering** | 82 custom MITRE-mapped rules plus SOCFortress community rules for broader lab coverage. |
 | **Purple-team testing** | Linux, Windows, and macOS-oriented attack simulations for credential access, lateral movement, privilege escalation, C2, and exfiltration. |
@@ -60,6 +60,8 @@ graph TB
         end
     end
 
+    CloudTrail[CloudTrail Management Events] --> S3[S3 Audit Log Bucket]
+    S3 -->|Native aws-s3 module| Wazuh
     Linux -->|Logs and telemetry| Wazuh
     Windows -->|Logs and telemetry| Wazuh
     Wazuh -->|Detected alerts via hook| AI
@@ -111,6 +113,11 @@ ssh_private_key_path = "~/.ssh/cloud-soc-key.pem"
 wazuh_instance_type = "t3.medium"
 endpoint_instance_type = "t3.micro"
 enable_macos_endpoint = false
+
+# Free-tier-conscious AWS API audit ingestion
+enable_cloudtrail_wazuh_ingestion = true
+cloudtrail_log_retention_days = 14
+cloudtrail_multi_region = false
 ```
 
 ### 2. Plan and deploy
@@ -124,6 +131,8 @@ terraform apply tfplan
 ```
 
 Wazuh bootstrap usually takes **5–10 minutes** after the EC2 instance starts. The Terraform rule provisioner waits before connecting, but if your public IP changes mid-deploy, update `allowed_ssh_cidr` and rerun `terraform apply`.
+
+CloudTrail management events are enabled by default and delivered to a dedicated encrypted S3 bucket. Wazuh reads those objects with its native AWS `aws-s3` module using the Wazuh EC2 instance role, so no static AWS keys are stored on the server. CloudTrail data events, GuardDuty, VPC Flow Logs, Security Hub, and AWS Config are intentionally not enabled by this PR to keep the default lab cost-conscious.
 
 > **SOCFortress note:** the upstream SOCFortress rule installer can prompt for confirmation. If Terraform blocks at that step, complete the installer manually over SSH or adjust the provisioner to run it non-interactively before using this in unattended CI.
 
@@ -310,6 +319,7 @@ tf-aws-soc/
 ├── terraform/                  # AWS infrastructure as code
 │   ├── provider.tf             # Terraform and AWS provider configuration
 │   ├── vpc.tf                  # VPC, subnets, route tables, NAT Gateway
+│   ├── cloudtrail_wazuh.tf     # CloudTrail S3 bucket and trail for Wazuh ingestion
 │   ├── ec2.tf                  # Wazuh and endpoint EC2 instances
 │   ├── security_groups.tf      # Wazuh, Linux, and Windows security groups
 │   ├── iam.tf                  # EC2 IAM roles and instance profiles
@@ -332,6 +342,7 @@ Approximate always-on lab cost in `us-east-1` with default instance sizes:
 
 | Resource | Default | Notes |
 |---|---|---|
+| CloudTrail management events | S3-backed trail | First management-event copy is free; S3 storage/request charges can still apply. |
 | Wazuh server | `t3.medium` | Required for all-in-one Wazuh lab performance. |
 | Linux endpoint | `t3.micro` | Free-tier eligible in some accounts, subject to AWS terms. |
 | Windows endpoint | `t3.micro` | Windows licensing affects actual cost. |
