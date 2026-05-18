@@ -274,6 +274,8 @@ class VectorStore:
             "mappings": {
                 "properties": {
                     "playbook_id": {"type": "keyword"},
+                    "chunk_id": {"type": "keyword"},
+                    "heading": {"type": "text", "analyzer": "standard"},
                     "title": {"type": "text", "analyzer": "standard"},
                     "description": {"type": "text", "analyzer": "standard"},
                     "severity": {"type": "keyword"},
@@ -404,6 +406,8 @@ class VectorStore:
         mitre_techniques: List[str] = None,
         file_path: str = None,
         content: Dict = None,
+        chunk_id: str = None,
+        heading: str = None,
     ) -> bool:
         """
         Index an incident response playbook with its embedding.
@@ -417,6 +421,8 @@ class VectorStore:
             mitre_techniques: List of MITRE ATT&CK technique IDs
             file_path: Path to playbook file
             content: Full playbook content
+            chunk_id: Optional stable section chunk ID
+            heading: Optional markdown section heading
 
         Returns:
             True if indexed successfully
@@ -426,6 +432,8 @@ class VectorStore:
 
         doc = {
             "playbook_id": playbook_id,
+            "chunk_id": chunk_id or playbook_id,
+            "heading": heading or title,
             "title": title,
             "description": description,
             "severity": severity,
@@ -437,8 +445,13 @@ class VectorStore:
             "content": content or {},
         }
 
+        document_id = str(doc["chunk_id"]) if doc.get("chunk_id") else None
+
         try:
-            self.client.index(index=self.INDEX_PLAYBOOKS, body=doc)
+            if document_id:
+                self.client.index(index=self.INDEX_PLAYBOOKS, id=document_id, body=doc)
+            else:
+                self.client.index(index=self.INDEX_PLAYBOOKS, body=doc)
             return True
         except Exception as e:
             logger.error(f"Failed to index playbook: {e}")
@@ -705,6 +718,7 @@ class VectorStore:
             ],
             self.INDEX_PLAYBOOKS: [
                 "title^2",
+                "heading^2",
                 "description",
                 "mitre_techniques",
                 "severity",
