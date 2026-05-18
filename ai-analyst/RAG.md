@@ -86,12 +86,16 @@ Manages OpenSearch k-NN indices:
 |-------|---------|------------|
 | `soc-alerts-v1` | Historical alerts | rule_id, agent_name, src_ip, embedding |
 | `soc-threat-intel-v1` | IOCs | ioc_value, ioc_type, threat_type, embedding |
-| `soc-playbooks-v1` | IR playbooks | title, mitre_techniques, severity, embedding |
+| `soc-playbooks-v1` | IR playbook sections | playbook_id, chunk_id, heading, title, mitre_techniques, severity, embedding |
 
 **Features:**
 - k-NN similarity search with HNSW algorithm
 - Hybrid search (text + vector)
 - Metadata filtering (time ranges, agents, etc.)
+
+### Playbook Chunking
+
+Playbooks are indexed as deterministic markdown section chunks rather than one whole-document embedding. Headings define the primary sections, oversized sections are split safely, and each chunk keeps parent playbook metadata plus the section text for prompt grounding.
 
 ### 3. RAG Retriever (`rag_retriever.py`)
 

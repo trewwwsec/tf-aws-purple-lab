@@ -113,12 +113,19 @@ class RAGContext:
                 severity = pb.get("severity", "unknown")
                 similarity = pb.get("similarity_score", 0)
                 techniques = pb.get("mitre_techniques", [])
+                heading = pb.get("heading")
+                content = pb.get("content", {})
+                chunk_text = content.get("chunk_text") if isinstance(content, dict) else None
 
                 sections.append(f"{i}. {title}")
+                if heading and heading != title:
+                    sections.append(f"   - Section: {heading}")
                 sections.append(f"   - Severity: {severity}")
                 if techniques:
                     sections.append(f"   - MITRE: {', '.join(techniques)}")
                 sections.append(f"   - Relevance: {similarity:.2%}")
+                if chunk_text:
+                    sections.append(f"   - Guidance: {str(chunk_text)[:700]}")
                 sections.append("")
 
         # Temporal context section
@@ -549,11 +556,11 @@ class RAGRetriever:
                     embedding=embedding, mitre_techniques=mitre_techniques
                 )
 
-            # Deduplicate by playbook_id
+            # Deduplicate by chunk_id so multiple relevant sections from one playbook can surface.
             seen_ids = set()
             unique_playbooks = []
             for pb in playbooks:
-                pb_id = pb.get("playbook_id")
+                pb_id = pb.get("chunk_id") or pb.get("playbook_id")
                 if pb_id and pb_id not in seen_ids:
                     seen_ids.add(pb_id)
                     unique_playbooks.append(pb)
