@@ -404,6 +404,10 @@ API for live event collection and baseline comparison.
 **Version**: 2.0  
 **Status**: Production-Ready
 
+### Anomaly Detector Config Fidelity
+
+Anomaly detection honors the configured lookback window, category toggles, and `min_confidence` floor. Disabled detector families are removed before AI reasoning, and low-confidence AI findings are filtered from final results.
+
 ### Webhook Notifications
 
 Completed analyses can be sent to a webhook without failing core analysis if delivery fails. Notifications are disabled by default. Configure `notifications.enabled: true` and provide a webhook URL through `AI_ANALYST_WEBHOOK_URL` or `notifications.webhook_url`.
