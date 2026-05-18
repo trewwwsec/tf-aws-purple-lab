@@ -403,3 +403,19 @@ API for live event collection and baseline comparison.
 **Last Updated**: 2026-02-13  
 **Version**: 2.0  
 **Status**: Production-Ready
+
+### Operator Feedback
+
+The API can capture analyst feedback for completed AI analyses:
+
+```bash
+curl -X POST http://127.0.0.1:8080/feedback \
+  -H "Authorization: Bearer $AI_ANALYST_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"alert_id":"evt-1","analysis_id":"analysis-1","rating":"useful","correction":"Good triage"}'
+
+curl -H "Authorization: Bearer $AI_ANALYST_API_TOKEN" \
+  'http://127.0.0.1:8080/feedback?alert_id=evt-1'
+```
+
+Feedback ratings are `useful`, `wrong`, or `needs_review`. Entries are stored as append-only JSONL at `~/.cache/ai-analyst/feedback.jsonl` by default, or `feedback.path` when configured.
