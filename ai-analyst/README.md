@@ -403,3 +403,7 @@ API for live event collection and baseline comparison.
 **Last Updated**: 2026-02-13  
 **Version**: 2.0  
 **Status**: Production-Ready
+
+### Webhook Notifications
+
+Completed analyses can be sent to a webhook without failing core analysis if delivery fails. Notifications are disabled by default. Configure `notifications.enabled: true` and provide a webhook URL through `AI_ANALYST_WEBHOOK_URL` or `notifications.webhook_url`.
