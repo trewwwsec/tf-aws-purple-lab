@@ -185,6 +185,7 @@ class AlertAnalyzer:
         self,
         alert: Dict[str, Any],
         include_historical: bool = True,
+        source_path: str = "manual_lookup",
     ) -> Dict[str, Any]:
         """Analyze a security alert and return enriched analysis."""
         alert_fields = extract_alert_fields(alert)
@@ -200,7 +201,11 @@ class AlertAnalyzer:
         mitre_id = mitre_ids[0] if mitre_ids else None
         mitre_info = get_mitre_info(mitre_id) if mitre_id else {}
 
-        context = self.enricher.enrich(alert, include_historical=include_historical)
+        context = self.enricher.enrich(
+            alert,
+            index_for_rag=False,
+            include_historical=include_historical,
+        )
         ai_analysis = self.ai_client.analyze_alert(
             alert=alert,
             context=context,
@@ -243,6 +248,14 @@ class AlertAnalyzer:
             ),
             "raw_alert": alert if self.config.get("include_raw") else None,
         }
+
+        rag_indexed = self.enricher.index_analyzed_alert(
+            alert, analysis, source_path=source_path
+        )
+        context["rag_indexed"] = rag_indexed
+        if rag_indexed and "rag_indexed" not in context["enrichment_sources"]:
+            context["enrichment_sources"].append("rag_indexed")
+
         analysis["notification_sent"] = self.notifier.send(analysis)
         return analysis
 
@@ -556,7 +569,9 @@ def main():
         if args.alert_file:
             with open(args.alert_file, "r", encoding="utf-8") as f:
                 alert = normalize_alert_payload(json.load(f))
-            analysis = analyzer.analyze(alert, include_historical=False)
+            analysis = analyzer.analyze(
+                alert, include_historical=False, source_path="hook"
+            )
             if args.report is not None:
                 _render_report([analysis], args.report)
             else:

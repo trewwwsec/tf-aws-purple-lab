@@ -406,14 +406,19 @@ class EmbeddingService:
         """
         Generate embedding for an incident response playbook.
         """
+        content = playbook.get("content", {})
+        chunk_text = content.get("chunk_text") or content.get("full_text") if isinstance(content, dict) else ""
         parts = [
             playbook.get("title", ""),
+            playbook.get("heading", ""),
             playbook.get("description", ""),
             f"Severity: {playbook.get('severity', '')}",
         ]
         mitre = playbook.get("mitre_techniques", [])
         if mitre:
             parts.append(f"MITRE: {', '.join(mitre)}")
+        if chunk_text:
+            parts.append(str(chunk_text))
         text = " | ".join(filter(None, parts))
         return cast(List[float], self.embed(text))
 
