@@ -92,6 +92,28 @@ class TestAnomalyConfigFidelity(unittest.TestCase):
         self.assertTrue(dummy.calls)
         self.assertIn("timestamp>", dummy.calls[0]["q"])
 
+    def test_disabled_categories_produce_no_findings_from_pipeline(self):
+        detector = self._build_detector(
+            categories={
+                "login_anomalies": False,
+                "network_anomalies": False,
+                "process_anomalies": False,
+                "privilege_anomalies": False,
+                "file_integrity_anomalies": False,
+                "volume_anomalies": False,
+            }
+        )
+        detector.engine.baselines = {"agent-1": object()}
+        detector.engine.check_events = lambda events: [
+            {"category": "login_anomaly", "detail": "off-hours login"},
+            {"category": "network_anomaly", "detail": "new source ip"},
+        ]
+
+        result = detector._run_pipeline([{"id": "event-1"}])
+
+        self.assertEqual(result["status"], "clean")
+        self.assertEqual(result["findings"], [])
+
     def test_detector_keeps_wazuh_client_for_live_queries(self):
         detector = self._build_detector()
 
