@@ -61,9 +61,13 @@ class TestAnomalyConfigFidelity(unittest.TestCase):
             {"category": "login_anomaly", "detail": "off-hours login"},
             {"category": "network_anomaly", "detail": "new source ip"},
         ]
-        filtered = detector._filter_deviations_by_category(deviations)
+        filtered, telemetry = detector._filter_deviations_by_category(deviations)
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0]["category"], "network_anomaly")
+        self.assertEqual(telemetry["raw_deviations"], 2)
+        self.assertEqual(telemetry["kept_deviations"], 1)
+        self.assertEqual(telemetry["filtered_by_disabled_category"], 1)
+        self.assertEqual(telemetry["filtered_categories"], {"login_anomaly": 1})
 
     def test_min_confidence_filter_applies(self):
         detector = self._build_detector(min_confidence=0.75)
@@ -113,6 +117,47 @@ class TestAnomalyConfigFidelity(unittest.TestCase):
 
         self.assertEqual(result["status"], "clean")
         self.assertEqual(result["findings"], [])
+
+    def test_pipeline_result_includes_policy_and_filter_telemetry(self):
+        detector = self._build_detector(
+            categories={
+                "login_anomalies": False,
+                "network_anomalies": True,
+                "process_anomalies": True,
+                "privilege_anomalies": True,
+                "file_integrity_anomalies": True,
+                "volume_anomalies": True,
+                "unknown_future_category": False,
+            },
+            min_confidence=0.75,
+        )
+        detector.engine.baselines = {"agent-1": object()}
+        detector.engine.check_events = lambda events: [
+            {"category": "login_anomaly", "detail": "off-hours login"},
+            {"category": "network_anomaly", "detail": "new source ip", "z_score": 3.0},
+        ]
+
+        result = detector._run_pipeline([{"id": "event-1"}], lookback_hours=12)
+
+        policy = result["anomaly_policy"]
+        self.assertEqual(policy["lookback_hours"], 12)
+        self.assertEqual(policy["min_confidence"], 0.75)
+        self.assertIn("login_anomalies", policy["disabled_categories"])
+        self.assertIn("unknown_future_category", policy["unknown_category_keys"])
+        category_filter = result["filter_telemetry"]["category_filter"]
+        self.assertEqual(category_filter["raw_deviations"], 2)
+        self.assertEqual(category_filter["filtered_by_disabled_category"], 1)
+        self.assertIn("min_confidence_filter", result["filter_telemetry"])
+
+    def test_no_events_result_includes_policy_metadata(self):
+        detector = self._build_detector()
+        detector.wazuh_client = _DummyWazuhClient([])
+
+        result = detector.run_live(lookback_hours=6)
+
+        self.assertEqual(result["status"], "no_events")
+        self.assertEqual(result["anomaly_policy"]["lookback_hours"], 6)
+        self.assertEqual(result["filter_telemetry"]["category_filter"]["raw_deviations"], 0)
 
     def test_detector_keeps_wazuh_client_for_live_queries(self):
         detector = self._build_detector()
