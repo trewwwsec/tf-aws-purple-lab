@@ -129,13 +129,14 @@ print(analysis["rag_context"])
 
 ### 5. Alert Enricher (`alert_enricher.py`)
 
-Automatically indexes alerts for future retrieval:
+Adds enrichment context and can persist analyzed alerts for future retrieval. Hook/API direct-alert analysis keeps historical lookup disabled during triage, then indexes the analyzed alert afterward when `rag.indexing.auto_index` is enabled and the alert meets `rag.indexing.min_level`.
 
 ```python
 from alert_enricher import AlertEnricher
 
 enricher = AlertEnricher(enable_rag_indexing=True)
-context = enricher.enrich(alert, index_for_rag=True)
+context = enricher.enrich(alert, index_for_rag=False)
+indexed = enricher.index_analyzed_alert(alert, analysis, source_path="hook")
 ```
 
 ## Setup
