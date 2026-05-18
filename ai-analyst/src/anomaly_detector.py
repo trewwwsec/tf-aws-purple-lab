@@ -67,6 +67,8 @@ CATEGORY_TOGGLE_MAP = {
     "volume_anomaly": "volume_anomalies",
 }
 
+KNOWN_CATEGORY_KEYS = sorted(set(CATEGORY_TOGGLE_MAP.values()))
+
 
 class AnomalyDetector:
     """
@@ -92,11 +94,26 @@ class AnomalyDetector:
         self.engine = BaselineEngine(z_score_threshold=z_score_threshold)
         self.ai_client = AIClient(config=self.config, runtime_mode=runtime_mode)
         anomaly_cfg = self.config.get("anomaly_detection", {}) if isinstance(self.config, dict) else {}
-        self.category_toggles = (
+        raw_categories = (
             anomaly_cfg.get("categories", {})
             if isinstance(anomaly_cfg.get("categories", {}), dict)
             else {}
         )
+        self.category_toggles = self._normalize_category_toggles(raw_categories)
+        self.unknown_category_keys = sorted(
+            key for key in raw_categories if key not in KNOWN_CATEGORY_KEYS
+        )
+        if self.unknown_category_keys:
+            logger.warning(
+                "Unknown anomaly category config keys ignored: %s",
+                ", ".join(self.unknown_category_keys),
+            )
+        self._last_category_filter_telemetry = {
+            "raw_deviations": 0,
+            "kept_deviations": 0,
+            "filtered_by_disabled_category": 0,
+            "filtered_categories": {},
+        }
 
         wazuh_cfg = self.config.get("wazuh", {}) if isinstance(self.config, dict) else {}
         self.wazuh_client = WazuhClient(
@@ -124,6 +141,43 @@ class AnomalyDetector:
         # Run detection pipeline
         return self._run_pipeline(current_events)
 
+    @staticmethod
+    def _normalize_category_toggles(categories: Dict[str, Any]) -> Dict[str, bool]:
+        """Normalize known category toggles, defaulting missing keys to enabled."""
+        return {key: bool(categories.get(key, True)) for key in KNOWN_CATEGORY_KEYS}
+
+    def _build_policy_metadata(self, lookback_hours: Optional[int] = None) -> Dict[str, Any]:
+        """Return production-visible anomaly policy/config metadata."""
+        enabled = [key for key in KNOWN_CATEGORY_KEYS if self.category_toggles.get(key, True)]
+        disabled = [key for key in KNOWN_CATEGORY_KEYS if not self.category_toggles.get(key, True)]
+        return {
+            "lookback_hours": lookback_hours,
+            "z_score_threshold": self.z_score_threshold,
+            "min_confidence": self.min_confidence,
+            "enabled_categories": enabled,
+            "disabled_categories": disabled,
+            "unknown_category_keys": list(self.unknown_category_keys),
+        }
+
+    def _with_policy(
+        self,
+        result: Dict[str, Any],
+        lookback_hours: Optional[int] = None,
+        category_filter: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Attach anomaly policy and filtering telemetry to a result."""
+        result["anomaly_policy"] = self._build_policy_metadata(lookback_hours)
+        result["filter_telemetry"] = {
+            "category_filter": category_filter or dict(self._last_category_filter_telemetry),
+            "min_confidence_filter": {
+                "threshold": self.min_confidence,
+                "filtered_findings": int(
+                    result.get("ai_analysis", {}).get("filtered_out_low_confidence", 0)
+                ),
+            },
+        }
+        return result
+
     def run_live(self, lookback_hours: int = 24) -> Dict[str, Any]:
         """
         Run anomaly detection against a live Wazuh instance.
@@ -143,12 +197,15 @@ class AnomalyDetector:
         events = self._fetch_events(lookback_hours=lookback_hours)
 
         if not events:
-            return {
-                "scan_time": datetime.now(timezone.utc).isoformat(),
-                "status": "no_events",
-                "message": "No events found in the specified time window",
-                "findings": [],
-            }
+            return self._with_policy(
+                {
+                    "scan_time": datetime.now(timezone.utc).isoformat(),
+                    "status": "no_events",
+                    "message": "No events found in the specified time window",
+                    "findings": [],
+                },
+                lookback_hours=lookback_hours,
+            )
 
         # If no baseline exists, build one and return
         if not self.engine.baselines:
@@ -156,15 +213,18 @@ class AnomalyDetector:
             self.engine.build_from_events(events)
             if self.baseline_path:
                 self.engine.save(self.baseline_path)
-            return {
-                "scan_time": datetime.now(timezone.utc).isoformat(),
-                "status": "baseline_built",
-                "message": f"Initial baseline built from {len(events)} events across {len(self.engine.baselines)} agents. Run again to detect anomalies.",
-                "findings": [],
-            }
+            return self._with_policy(
+                {
+                    "scan_time": datetime.now(timezone.utc).isoformat(),
+                    "status": "baseline_built",
+                    "message": f"Initial baseline built from {len(events)} events across {len(self.engine.baselines)} agents. Run again to detect anomalies.",
+                    "findings": [],
+                },
+                lookback_hours=lookback_hours,
+            )
 
         # Run detection pipeline
-        result = self._run_pipeline(events)
+        result = self._run_pipeline(events, lookback_hours=lookback_hours)
 
         # Update baselines with new data
         self.engine.build_from_events(events)
@@ -173,23 +233,31 @@ class AnomalyDetector:
 
         return result
 
-    def _run_pipeline(self, events: List[Dict]) -> Dict[str, Any]:
+    def _run_pipeline(
+        self, events: List[Dict], lookback_hours: Optional[int] = None
+    ) -> Dict[str, Any]:
         """Core detection pipeline."""
         scan_time = datetime.now(timezone.utc).isoformat()
 
         # Step 1: Check events against baselines
-        deviations = self.engine.check_events(events)
-        deviations = self._filter_deviations_by_category(deviations)
+        raw_deviations = self.engine.check_events(events)
+        deviations, category_filter = self._filter_deviations_by_category(raw_deviations)
 
         if not deviations:
-            return {
-                "scan_time": scan_time,
-                "status": "clean",
-                "events_analyzed": len(events),
-                "agents_checked": len(self.engine.baselines),
-                "message": "No anomalies detected — all activity within normal baselines",
-                "findings": [],
-            }
+            return self._with_policy(
+                {
+                    "scan_time": scan_time,
+                    "status": "clean",
+                    "events_analyzed": len(events),
+                    "agents_checked": len(self.engine.baselines),
+                    "deviations_found": 0,
+                    "raw_deviations_found": len(raw_deviations),
+                    "message": "No anomalies detected — all activity within normal baselines",
+                    "findings": [],
+                },
+                lookback_hours=lookback_hours,
+                category_filter=category_filter,
+            )
 
         # Step 2: Enrich deviations with MITRE context
         enriched = self._enrich_deviations(deviations)
@@ -201,32 +269,42 @@ class AnomalyDetector:
         findings = ai_analysis.get("findings", [])
         if not findings:
             dropped = ai_analysis.get("filtered_out_low_confidence", 0)
-            return {
+            return self._with_policy(
+                {
+                    "scan_time": scan_time,
+                    "status": "clean",
+                    "events_analyzed": len(events),
+                    "agents_checked": len(self.engine.baselines),
+                    "deviations_found": len(deviations),
+                    "raw_deviations_found": len(raw_deviations),
+                    "raw_deviations": enriched,
+                    "ai_analysis": ai_analysis,
+                    "analysis_metadata": self.ai_client.get_status(),
+                    "message": (
+                        "Deviations detected, but all findings were below min_confidence "
+                        f"({self.min_confidence:.2f}). Filtered: {dropped}"
+                    ),
+                },
+                lookback_hours=lookback_hours,
+                category_filter=category_filter,
+            )
+
+        # Step 4: Build final result
+        return self._with_policy(
+            {
                 "scan_time": scan_time,
-                "status": "clean",
+                "status": "anomalies_detected",
                 "events_analyzed": len(events),
                 "agents_checked": len(self.engine.baselines),
                 "deviations_found": len(deviations),
+                "raw_deviations_found": len(raw_deviations),
                 "raw_deviations": enriched,
                 "ai_analysis": ai_analysis,
                 "analysis_metadata": self.ai_client.get_status(),
-                "message": (
-                    "Deviations detected, but all findings were below min_confidence "
-                    f"({self.min_confidence:.2f}). Filtered: {dropped}"
-                ),
-            }
-
-        # Step 4: Build final result
-        return {
-            "scan_time": scan_time,
-            "status": "anomalies_detected",
-            "events_analyzed": len(events),
-            "agents_checked": len(self.engine.baselines),
-            "deviations_found": len(deviations),
-            "raw_deviations": enriched,
-            "ai_analysis": ai_analysis,
-            "analysis_metadata": self.ai_client.get_status(),
-        }
+            },
+            lookback_hours=lookback_hours,
+            category_filter=category_filter,
+        )
 
     @staticmethod
     def _parse_timestamp(ts: str) -> Optional[datetime]:
@@ -263,9 +341,27 @@ class AnomalyDetector:
             return True
         return bool(self.category_toggles.get(toggle_key, True))
 
-    def _filter_deviations_by_category(self, deviations: List[Dict]) -> List[Dict]:
-        """Drop deviations from disabled detector families."""
-        return [d for d in deviations if self._is_category_enabled(d.get("category", ""))]
+    def _filter_deviations_by_category(
+        self, deviations: List[Dict]
+    ) -> tuple[List[Dict], Dict[str, Any]]:
+        """Drop deviations from disabled detector families and report telemetry."""
+        kept: List[Dict] = []
+        filtered_categories: Dict[str, int] = {}
+        for deviation in deviations:
+            category = deviation.get("category", "")
+            if self._is_category_enabled(category):
+                kept.append(deviation)
+            else:
+                filtered_categories[category] = filtered_categories.get(category, 0) + 1
+
+        telemetry: Dict[str, Any] = {
+            "raw_deviations": len(deviations),
+            "kept_deviations": len(kept),
+            "filtered_by_disabled_category": len(deviations) - len(kept),
+            "filtered_categories": filtered_categories,
+        }
+        self._last_category_filter_telemetry = telemetry
+        return kept, telemetry
 
     @staticmethod
     def _severity_rank(severity: str) -> int:
