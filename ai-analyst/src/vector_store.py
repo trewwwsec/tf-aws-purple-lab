@@ -64,7 +64,7 @@ class VectorStore:
         self.use_ssl = use_ssl
         self.verify_certs = verify_certs
 
-        self.client = None
+        self.client: Any = None
         self._connect()
 
     def _get_hosts_from_env(self) -> List[str]:
@@ -472,7 +472,7 @@ class VectorStore:
             return []
 
         # Build filter clauses
-        filter_clauses = []
+        filter_clauses: List[Dict[str, Any]] = []
 
         # Time range filter
         if time_range:
@@ -487,7 +487,7 @@ class VectorStore:
         if rule_id:
             filter_clauses.append({"term": {"rule_id": rule_id}})
 
-        query = {
+        query: Dict[str, Any] = {
             "size": k,
             "query": {
                 "knn": {
@@ -542,11 +542,11 @@ class VectorStore:
         if not self.is_connected():
             return []
 
-        filter_clauses = []
+        filter_clauses: List[Dict[str, Any]] = []
         if ioc_type:
             filter_clauses.append({"term": {"ioc_type": ioc_type}})
 
-        query = {
+        query: Dict[str, Any] = {
             "size": k,
             "query": {"knn": {"embedding": {"vector": embedding, "k": k}}},
         }
@@ -580,11 +580,11 @@ class VectorStore:
         if not self.is_connected() or not ioc_value:
             return []
 
-        filter_clauses = [{"term": {"ioc_value": ioc_value}}]
+        filter_clauses: List[Dict[str, Any]] = [{"term": {"ioc_value": ioc_value}}]
         if ioc_type:
             filter_clauses.append({"term": {"ioc_type": ioc_type}})
 
-        query = {
+        query: Dict[str, Any] = {
             "size": k,
             "query": {"bool": {"filter": filter_clauses}},
             "sort": [{"confidence_score": {"order": "desc"}}],
@@ -620,13 +620,12 @@ class VectorStore:
             return []
 
         # Combine semantic search with MITRE technique filter
-        must_clauses = []
-        filter_clauses = []
+        filter_clauses: List[Dict[str, Any]] = []
 
         if mitre_technique:
             filter_clauses.append({"terms": {"mitre_techniques": [mitre_technique]}})
 
-        query = {
+        query: Dict[str, Any] = {
             "size": k,
             "query": {"knn": {"embedding": {"vector": embedding, "k": k}}},
         }
@@ -715,7 +714,7 @@ class VectorStore:
             index_name, ["rule_description", "title", "description"]
         )
 
-        filter_clauses = []
+        filter_clauses: List[Dict[str, Any]] = []
         if filters:
             for key, value in filters.items():
                 if value is None:
@@ -737,11 +736,11 @@ class VectorStore:
             else {"match_all": {}}
         )
 
-        wrapped_query = {"must": [must_query]}
+        wrapped_query: Dict[str, Any] = {"must": [must_query]}
         if filter_clauses:
             wrapped_query["filter"] = filter_clauses
 
-        query = {
+        query: Dict[str, Any] = {
             "size": k,
             "query": {
                 "script_score": {
@@ -849,7 +848,7 @@ class VectorStore:
         if not self.is_connected():
             return {"error": "Not connected to OpenSearch"}
 
-        stats = {}
+        stats: Dict[str, Any] = {}
 
         for index in [self.INDEX_ALERTS, self.INDEX_THREAT_INTEL, self.INDEX_PLAYBOOKS]:
             try:
@@ -864,7 +863,7 @@ class VectorStore:
         """
         Return connection and per-index health data for runtime checks/telemetry.
         """
-        health = {
+        health: Dict[str, Any] = {
             "connected": self.is_connected(),
             "cluster": {},
             "indices": {},
@@ -884,7 +883,7 @@ class VectorStore:
             health["cluster"] = {"status": "unknown", "error": str(e)}
 
         for index in [self.INDEX_ALERTS, self.INDEX_THREAT_INTEL, self.INDEX_PLAYBOOKS]:
-            entry = {"exists": False, "document_count": 0}
+            entry: Dict[str, Any] = {"exists": False, "document_count": 0}
             try:
                 exists = self.client.indices.exists(index=index)
                 entry["exists"] = bool(exists)
