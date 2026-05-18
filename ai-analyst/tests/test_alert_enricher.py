@@ -11,8 +11,25 @@ from alert_enricher import AlertEnricher, HistoricalAnalyzer, ThreatIntelligence
 
 
 class _ConnectedVectorStore:
+    def __init__(self):
+        self.indexed = []
+
     def is_connected(self):
         return True
+
+    def index_alert(self, alert, embedding, **kwargs):
+        self.indexed.append((alert, embedding, kwargs))
+        return True
+
+
+class _FailingVectorStore(_ConnectedVectorStore):
+    def index_alert(self, alert, embedding, **kwargs):
+        raise RuntimeError("OpenSearch unavailable")
+
+
+class _DummyEmbeddingService:
+    def embed_alert(self, alert):
+        return [0.1, 0.2, 0.3]
 
 
 class _EmptyWazuhClient:
@@ -105,6 +122,67 @@ class TestAlertEnricher(unittest.TestCase):
         self.assertEqual(result["related_events"], 0)
         self.assertIsNone(result["first_seen"])
         self.assertNotIn("historical", result["enrichment_sources"])
+
+    def test_index_analyzed_alert_stores_analysis_metadata_after_analysis(self):
+        enricher = AlertEnricher(
+            enable_rag_indexing=False,
+            config={"rag": {"indexing": {"min_level": 5}}},
+            runtime_mode="demo",
+        )
+        vector_store = _ConnectedVectorStore()
+        enricher.enable_rag_indexing = True
+        enricher._vector_store = vector_store
+        enricher._embedding_service = _DummyEmbeddingService()
+
+        result = enricher.index_analyzed_alert(
+            {"id": "evt-1", "rule": {"level": 8}},
+            {
+                "alert_title": "Suspicious login",
+                "severity": 8,
+                "severity_label": "High",
+                "playbook": "ssh-brute-force.md",
+                "analysis_metadata": {"analysis_method": "mock"},
+            },
+            source_path="hook",
+        )
+
+        self.assertTrue(result)
+        self.assertEqual(len(vector_store.indexed), 1)
+        _, embedding, kwargs = vector_store.indexed[0]
+        self.assertEqual(embedding, [0.1, 0.2, 0.3])
+        self.assertEqual(kwargs["source_path"], "hook")
+        self.assertEqual(kwargs["playbook"], "ssh-brute-force.md")
+        self.assertEqual(kwargs["analysis_metadata"]["alert_title"], "Suspicious login")
+
+    def test_index_analyzed_alert_respects_min_level(self):
+        enricher = AlertEnricher(
+            enable_rag_indexing=False,
+            config={"rag": {"indexing": {"min_level": 5}}},
+            runtime_mode="demo",
+        )
+        vector_store = _ConnectedVectorStore()
+        enricher.enable_rag_indexing = True
+        enricher._vector_store = vector_store
+        enricher._embedding_service = _DummyEmbeddingService()
+
+        result = enricher.index_analyzed_alert({"rule": {"level": 4}}, {}, source_path="hook")
+
+        self.assertFalse(result)
+        self.assertEqual(vector_store.indexed, [])
+
+    def test_index_analyzed_alert_failure_is_non_fatal(self):
+        enricher = AlertEnricher(
+            enable_rag_indexing=False,
+            config={"rag": {"indexing": {"min_level": 5}}},
+            runtime_mode="demo",
+        )
+        enricher.enable_rag_indexing = True
+        enricher._vector_store = _FailingVectorStore()
+        enricher._embedding_service = _DummyEmbeddingService()
+
+        result = enricher.index_analyzed_alert({"rule": {"level": 5}}, {}, source_path="hook")
+
+        self.assertFalse(result)
 
 
 if __name__ == "__main__":
