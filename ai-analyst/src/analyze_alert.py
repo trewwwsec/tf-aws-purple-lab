@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from alert_enricher import AlertEnricher
 from ai_client import AIClient
 from config_loader import enforce_security_posture, load_settings, resolve_runtime_mode
+from notification_service import NotificationService
 from utils import (
     extract_alert_fields,
     get_severity_color,
@@ -158,6 +159,12 @@ class AlertAnalyzer:
             runtime_mode=runtime_mode,
         )
         self.ai_client = AIClient(config=self.settings, runtime_mode=runtime_mode)
+        notification_cfg = (
+            self.settings.get("notifications", {})
+            if isinstance(self.settings.get("notifications"), dict)
+            else {}
+        )
+        self.notifier = NotificationService(notification_cfg)
         self.enricher = AlertEnricher(
             enable_rag_indexing=rag_index_cfg.get("auto_index", True),
             config=self.settings,
@@ -213,7 +220,7 @@ class AlertAnalyzer:
         severity_label = get_severity_label(severity)
         severity_color = get_severity_color(severity)
 
-        return {
+        analysis = {
             "alert_title": ai_analysis.get("title", rule_description),
             "rule_id": rule_id,
             "severity": severity,
@@ -236,6 +243,8 @@ class AlertAnalyzer:
             ),
             "raw_alert": alert if self.config.get("include_raw") else None,
         }
+        analysis["notification_sent"] = self.notifier.send(analysis)
+        return analysis
 
     def display_analysis(self, analysis: Dict[str, Any]):
         """Display analysis in terminal format."""
