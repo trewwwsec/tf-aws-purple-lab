@@ -37,9 +37,9 @@ class _DummyAnalyzer:
         self.wazuh_client = wazuh_client
         self.analyzed = []
 
-    def analyze(self, alert):
-        self.analyzed.append(alert)
-        return {"rule_id": alert["rule"]["id"], "alert_id": alert.get("id")}
+    def analyze(self, alert, **kwargs):
+        self.analyzed.append((alert, kwargs))
+        return {"rule_id": alert["rule"]["id"], "alert_id": alert.get("id"), "source_path": kwargs.get("source_path")}
 
 
 class APIHandlerTests(unittest.TestCase):
@@ -77,7 +77,7 @@ class APIHandlerTests(unittest.TestCase):
         self.assertEqual(response["analysis"]["rule_id"], "200020")
         self.assertEqual(analyzer.wazuh_client.alert_ids, ["200020"])
         self.assertEqual(analyzer.wazuh_client.rule_ids, [("200020", 1)])
-        self.assertEqual(analyzer.analyzed, [fallback_alert])
+        self.assertEqual(analyzer.analyzed, [(fallback_alert, {"source_path": "manual_lookup"})])
 
     def test_handle_analyze_unwraps_top_level_active_response_payload(self):
         raw_alert = {"id": "evt-2", "rule": {"id": "200021"}}
@@ -88,7 +88,7 @@ class APIHandlerTests(unittest.TestCase):
         response = handler._handle_analyze({"parameters": {"alert": raw_alert}})
 
         self.assertEqual(response["analysis"]["rule_id"], "200021")
-        self.assertEqual(analyzer.analyzed, [raw_alert])
+        self.assertEqual(analyzer.analyzed, [(raw_alert, {"source_path": "api_direct"})])
         self.assertEqual(analyzer.wazuh_client.alert_ids, [])
         self.assertEqual(analyzer.wazuh_client.rule_ids, [])
 
@@ -101,7 +101,7 @@ class APIHandlerTests(unittest.TestCase):
         response = handler._handle_analyze(raw_alert)
 
         self.assertEqual(response["analysis"]["rule_id"], "200022")
-        self.assertEqual(analyzer.analyzed, [raw_alert])
+        self.assertEqual(analyzer.analyzed, [(raw_alert, {"source_path": "api_direct"})])
 
     def test_handle_analyze_recent_validates_range(self):
         analyzer = _DummyAnalyzer(_DummyWazuhClient(recent_alerts=[]))

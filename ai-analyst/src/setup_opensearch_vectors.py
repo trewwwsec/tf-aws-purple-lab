@@ -39,10 +39,12 @@ try:
         load_settings,
         resolve_runtime_mode,
     )
+    from src.playbook_chunker import chunk_markdown_playbook
 except Exception as import_error:  # pragma: no cover - environment-dependent
     VectorStore = Any  # type: ignore[misc,assignment]
     EmbeddingService = Any  # type: ignore[misc,assignment]
     WazuhClient = Any  # type: ignore[misc,assignment]
+    chunk_markdown_playbook = Any  # type: ignore[assignment]
     _IMPORT_ERROR = import_error
 
 logging.basicConfig(
@@ -152,36 +154,41 @@ def index_playbooks(
             # Read playbook content
             content = playbook_file.read_text()
 
-            # Create playbook document
-            playbook_doc = {
-                "title": metadata["title"],
-                "description": metadata["description"],
-                "severity": metadata["severity"],
-                "mitre_techniques": metadata["mitre"],
-                "file_path": str(playbook_file),
-                "content": {"full_text": content[:5000]},  # Limit content size
-            }
-
-            # Generate embedding
-            embedding = embedding_service.embed_playbook(playbook_doc)
-
-            # Index playbook
-            success = vector_store.index_playbook(
+            chunks = chunk_markdown_playbook(
+                content,
                 playbook_id=metadata["id"],
                 title=metadata["title"],
-                description=metadata["description"],
-                embedding=embedding,
+                file_path=str(playbook_file),
                 severity=metadata["severity"],
                 mitre_techniques=metadata["mitre"],
-                file_path=str(playbook_file),
-                content=playbook_doc["content"],
             )
 
-            if success:
-                indexed_count += 1
-                logger.info(f"  ✓ Indexed {metadata['id']}: {metadata['title']}")
+            chunk_successes = 0
+            for chunk in chunks:
+                playbook_doc = chunk.to_document()
+                embedding = embedding_service.embed_playbook(playbook_doc)
+                success = vector_store.index_playbook(
+                    playbook_id=chunk.playbook_id,
+                    title=chunk.title,
+                    description=playbook_doc["description"],
+                    embedding=embedding,
+                    severity=chunk.severity,
+                    mitre_techniques=chunk.mitre_techniques,
+                    file_path=chunk.file_path,
+                    content=playbook_doc["content"],
+                    chunk_id=chunk.chunk_id,
+                    heading=chunk.heading,
+                )
+                if success:
+                    chunk_successes += 1
+
+            if chunk_successes:
+                indexed_count += chunk_successes
+                logger.info(
+                    f"  ✓ Indexed {chunk_successes} chunks for {metadata['id']}: {metadata['title']}"
+                )
             else:
-                logger.error(f"  ✗ Failed to index {filename}")
+                logger.error(f"  ✗ Failed to index chunks for {filename}")
 
         except Exception as e:
             logger.error(f"  ✗ Error indexing {filename}: {e}")
