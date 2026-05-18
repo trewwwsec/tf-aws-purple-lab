@@ -403,3 +403,7 @@ API for live event collection and baseline comparison.
 **Last Updated**: 2026-02-13  
 **Version**: 2.0  
 **Status**: Production-Ready
+
+### Anomaly Detector Config Fidelity
+
+Anomaly detection honors the configured lookback window, category toggles, and `min_confidence` floor. Disabled detector families are removed before AI reasoning, and low-confidence AI findings are filtered from final results.
