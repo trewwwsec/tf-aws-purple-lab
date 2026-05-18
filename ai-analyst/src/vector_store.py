@@ -304,13 +304,23 @@ class VectorStore:
             logger.error(f"Failed to create index {index_name}: {e}")
             return False
 
-    def index_alert(self, alert: Dict[str, Any], embedding: List[float]) -> bool:
+    def index_alert(
+        self,
+        alert: Dict[str, Any],
+        embedding: List[float],
+        analysis_metadata: Optional[Dict[str, Any]] = None,
+        source_path: str = "unknown",
+        playbook: Optional[str] = None,
+    ) -> bool:
         """
         Index a security alert with its embedding.
 
         Args:
             alert: Wazuh alert dictionary
             embedding: Vector embedding of the alert
+            analysis_metadata: Optional AI analysis metadata to store with the alert
+            source_path: Ingestion path that produced the alert analysis
+            playbook: Resolved playbook name for this alert
 
         Returns:
             True if indexed successfully
@@ -336,10 +346,19 @@ class VectorStore:
             "timestamp": alert.get("timestamp", datetime.now().isoformat()),
             "embedding": embedding,
             "raw_alert": alert,
+            "analysis_metadata": analysis_metadata or {},
+            "analysis_source": source_path,
+            "playbook": playbook,
+            "indexed_at": datetime.now().isoformat(),
         }
 
+        document_id = str(doc["alert_id"]) if doc.get("alert_id") else None
+
         try:
-            self.client.index(index=self.INDEX_ALERTS, body=doc)
+            if document_id:
+                self.client.index(index=self.INDEX_ALERTS, id=document_id, body=doc)
+            else:
+                self.client.index(index=self.INDEX_ALERTS, body=doc)
             return True
         except Exception as e:
             logger.error(f"Failed to index alert: {e}")
