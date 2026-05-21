@@ -65,6 +65,13 @@ resource "aws_instance" "wazuh_server" {
 resource "null_resource" "deploy_detection_rules" {
   depends_on = [aws_instance.wazuh_server]
 
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(var.ssh_private_key_path)
+    host        = aws_instance.wazuh_server.public_ip
+  }
+
   # Trigger redeployment when rules change
   triggers = {
     local_rules_hash = filemd5("${path.module}/../wazuh/custom_rules/local_rules.xml")
@@ -80,26 +87,12 @@ resource "null_resource" "deploy_detection_rules" {
   provisioner "file" {
     source      = "${path.module}/../wazuh/custom_rules/local_rules.xml"
     destination = "/tmp/local_rules.xml"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ssh_private_key_path)
-      host        = aws_instance.wazuh_server.public_ip
-    }
   }
 
   # Copy macos_rules.xml
   provisioner "file" {
     source      = "${path.module}/../wazuh/custom_rules/macos_rules.xml"
     destination = "/tmp/macos_rules.xml"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ssh_private_key_path)
-      host        = aws_instance.wazuh_server.public_ip
-    }
   }
 
   # Deploy rules and restart Wazuh
@@ -155,13 +148,6 @@ resource "null_resource" "deploy_detection_rules" {
       "echo ''",
       "echo 'Total: 2000+ MITRE ATT&CK mapped rules'"
     ]
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ssh_private_key_path)
-      host        = aws_instance.wazuh_server.public_ip
-    }
   }
 }
 
