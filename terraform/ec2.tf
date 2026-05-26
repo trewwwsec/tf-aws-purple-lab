@@ -46,12 +46,19 @@ resource "aws_instance" "wazuh_server" {
     encrypted             = true
   }
 
-  user_data = file("${path.module}/user_data/wazuh_server.sh")
+  user_data = templatefile("${path.module}/user_data/wazuh_server.sh", {
+    enable_cloudtrail_wazuh_ingestion = var.enable_cloudtrail_wazuh_ingestion
+    cloudtrail_bucket_name            = var.enable_cloudtrail_wazuh_ingestion ? aws_s3_bucket.cloudtrail_logs[0].id : ""
+    aws_region                        = var.aws_region
+    cloudtrail_regions                = var.cloudtrail_multi_region ? "" : var.aws_region
+  })
 
   tags = {
     Name = "${var.project_name}-wazuh-server"
     Role = "SIEM"
   }
+
+  depends_on = [aws_iam_role_policy.wazuh_cloudtrail_ingestion]
 }
 
 # Deploy custom detection rules after Wazuh is ready

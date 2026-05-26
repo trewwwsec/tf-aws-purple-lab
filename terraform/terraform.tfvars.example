@@ -74,3 +74,17 @@ endpoint_instance_type = "t3.micro"
 # Note: EBS volumes, data transfer may add minor additional costs
 # REMEMBER: Run 'terraform destroy' when not using!
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# CloudTrail -> S3 -> Wazuh Ingestion
+# -----------------------------------------------------------------------------
+
+# Enables a free-tier-conscious CloudTrail management event trail and configures
+# the Wazuh AWS module to read those logs from S3 using the Wazuh EC2 role.
+enable_cloudtrail_wazuh_ingestion = true
+
+# Keep retention short for lab usage. S3 storage/request charges can still apply.
+cloudtrail_log_retention_days = 14
+
+# Disabled by default to reduce lab log volume. Enable for broader AWS coverage.
+cloudtrail_multi_region = false

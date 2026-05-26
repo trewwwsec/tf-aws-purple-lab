@@ -52,3 +52,40 @@ resource "aws_iam_instance_profile" "endpoint_profile" {
   name = "${var.project_name}-endpoint-profile"
   role = aws_iam_role.endpoint_role.name
 }
+
+# Allow Wazuh to ingest CloudTrail management events from the dedicated S3 bucket.
+resource "aws_iam_role_policy" "wazuh_cloudtrail_ingestion" {
+  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+
+  name = "${var.project_name}-wazuh-cloudtrail-ingestion"
+  role = aws_iam_role.wazuh_server_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ListCloudTrailBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = aws_s3_bucket.cloudtrail_logs[0].arn
+        Condition = {
+          StringLike = {
+            "s3:prefix" = [
+              "AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+            ]
+          }
+        }
+      },
+      {
+        Sid    = "ReadCloudTrailObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "${aws_s3_bucket.cloudtrail_logs[0].arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+      }
+    ]
+  })
+}
