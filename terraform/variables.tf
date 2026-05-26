@@ -99,3 +99,26 @@ variable "macos_create_timeout" {
   type        = string
   default     = "30m"
 }
+
+variable "enable_cloudtrail_wazuh_ingestion" {
+  description = "Enable CloudTrail management event delivery to S3 and native Wazuh aws-s3 ingestion."
+  type        = bool
+  default     = true
+}
+
+variable "cloudtrail_log_retention_days" {
+  description = "Number of days to retain CloudTrail objects in the Wazuh ingestion S3 bucket. Keep short for free-tier-conscious labs."
+  type        = number
+  default     = 14
+
+  validation {
+    condition     = var.cloudtrail_log_retention_days >= 1
+    error_message = "cloudtrail_log_retention_days must be at least 1."
+  }
+}
+
+variable "cloudtrail_multi_region" {
+  description = "Create a multi-region CloudTrail trail. Disabled by default to reduce lab log volume and S3 usage."
+  type        = bool
+  default     = false
+}
