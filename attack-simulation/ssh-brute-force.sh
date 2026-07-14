@@ -2,7 +2,7 @@
 #
 # SSH Brute Force Attack Simulation
 # MITRE ATT&CK: T1110 - Brute Force
-# Tests Detection Rules: 100001, 100002, 100003
+# Tests Detection Rules: 200001, 200002, 200003
 #
 # ⚠️  WARNING: Only run in isolated lab environment!
 #
@@ -34,9 +34,9 @@ echo ""
 log_info "Starting SSH brute force simulation..."
 echo ""
 
-# Test 1: Multiple Failed Login Attempts (Rule 100001)
+# Test 1: Multiple Failed Login Attempts (Rule 200001)
 echo -e "${BLUE}[TEST 1]${NC} Simulating multiple failed SSH login attempts"
-echo "Expected Detection: Rule 100001 (SSH brute force - 5+ failures)"
+echo "Expected Detection: Rule 200001 (SSH brute force - 5+ failures)"
 echo "----------------------------------------"
 
 log_info "Starting SSH brute force simulation against $TARGET_HOST"
@@ -94,9 +94,9 @@ echo ""
 echo -e "${GREEN}[✓] Test 1 Complete${NC}"
 echo ""
 
-# Test 2: Successful Login After Failures (Rule 100002)
+# Test 2: Successful Login After Failures (Rule 200002)
 echo -e "${BLUE}[TEST 2]${NC} Simulating successful login after failed attempts"
-echo "Expected Detection: Rule 100002 (Successful login after brute force)"
+echo "Expected Detection: Rule 200002 (Successful login after brute force)"
 echo "----------------------------------------"
 
 if [ -n "$SSH_VALID_PASSWORD" ] || [ -n "$SSH_KEY_PATH" ]; then
@@ -104,19 +104,19 @@ if [ -n "$SSH_VALID_PASSWORD" ] || [ -n "$SSH_KEY_PATH" ]; then
     
     if [ -n "$SSH_KEY_PATH" ]; then
         ssh -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$TARGET_USER@$TARGET_HOST" "echo 'Successful login'" && \
-            echo -e "${GREEN}✓ Successful login (this should trigger Rule 100002)${NC}" || \
+            echo -e "${GREEN}✓ Successful login (this should trigger Rule 200002)${NC}" || \
             echo -e "${RED}✗ Login failed${NC}"
     else
         echo "Using password authentication..."
         sshpass -p "$SSH_VALID_PASSWORD" ssh -o StrictHostKeyChecking=no "$TARGET_USER@$TARGET_HOST" "echo 'Successful login'" && \
-            echo -e "${GREEN}✓ Successful login (this should trigger Rule 100002)${NC}" || \
+            echo -e "${GREEN}✓ Successful login (this should trigger Rule 200002)${NC}" || \
             echo -e "${RED}✗ Login failed${NC}"
     fi
     
     log_info "Successful SSH login after failed attempts"
 else
     echo -e "${YELLOW}⚠ Skipping Test 2: No valid credentials provided${NC}"
-    echo "To test Rule 100002, set one of:"
+    echo "To test Rule 200002, set one of:"
     echo "  export SSH_VALID_PASSWORD='your_password'"
     echo "  export SSH_KEY_PATH='/path/to/key.pem'"
 fi
@@ -125,18 +125,18 @@ echo ""
 echo -e "${GREEN}[✓] Test 2 Complete${NC}"
 echo ""
 
-# Test 3: Off-Hours Login (Rule 100003)
+# Test 3: Off-Hours Login (Rule 200003)
 echo -e "${BLUE}[TEST 3]${NC} Off-hours login detection"
-echo "Expected Detection: Rule 100003 (Login during unusual hours 2 AM - 6 AM)"
+echo "Expected Detection: Rule 200003 (Login during unusual hours 2 AM - 6 AM)"
 echo "----------------------------------------"
 
 current_hour=$(date +%H)
 if [ "$current_hour" -ge 2 ] && [ "$current_hour" -lt 6 ]; then
     echo -e "${YELLOW}Current time is within off-hours window (2 AM - 6 AM)${NC}"
-    echo "Any successful login now will trigger Rule 100003"
+    echo "Any successful login now will trigger Rule 200003"
 else
     echo -e "${YELLOW}Current time ($current_hour:00) is NOT in off-hours window${NC}"
-    echo "Rule 100003 only triggers between 2 AM - 6 AM"
+    echo "Rule 200003 only triggers between 2 AM - 6 AM"
     echo "To test this rule, run this script during those hours"
 fi
 
@@ -152,14 +152,14 @@ echo "Target: $TARGET_USER@$TARGET_HOST"
 echo "Failed Attempts: $ATTEMPTS"
 echo ""
 echo "Expected Wazuh Alerts:"
-echo "  • Rule 100001: SSH brute force (5+ failures in 2 minutes)"
-echo "  • Rule 100002: Successful login after failures (if credentials provided)"
-echo "  • Rule 100003: Off-hours login (if during 2 AM - 6 AM)"
+echo "  • Rule 200001: SSH brute force (5+ failures in 2 minutes)"
+echo "  • Rule 200002: Successful login after failures (if credentials provided)"
+echo "  • Rule 200003: Off-hours login (if during 2 AM - 6 AM)"
 echo ""
 print_section "📋" "Verification Steps"
 echo "1. Check Wazuh dashboard for alerts"
 echo "2. Or run on Wazuh server:"
-echo "   sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep '100001\|100002\|100003'"
+echo "   sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep '200001\|200002\|200003'"
 echo ""
 echo "Simulation Type: SSH Brute Force"
 echo "MITRE ATT&CK: T1110 - Brute Force"
@@ -167,14 +167,14 @@ echo "Target: $TARGET_USER@$TARGET_HOST"
 echo "Failed Attempts: $ATTEMPTS"
 echo ""
 echo "Expected Wazuh Alerts:"
-echo "  • Rule 100001: SSH brute force (5+ failures in 2 minutes)"
-echo "  • Rule 100002: Successful login after failures (if credentials provided)"
-echo "  • Rule 100003: Off-hours login (if during 2 AM - 6 AM)"
+echo "  • Rule 200001: SSH brute force (5+ failures in 2 minutes)"
+echo "  • Rule 200002: Successful login after failures (if credentials provided)"
+echo "  • Rule 200003: Off-hours login (if during 2 AM - 6 AM)"
 echo ""
 echo -e "${GREEN}Verification Steps:${NC}"
 echo "1. Check Wazuh dashboard for alerts"
 echo "2. Or run on Wazuh server:"
-echo "   sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep '100001\\|100002\\|100003'"
+echo "   sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep '200001\\|200002\\|200003'"
 echo ""
 echo "Log file: simulation.log"
 echo ""
@@ -184,7 +184,7 @@ echo ""
 read -p "Would you like to check for alerts now? (yes/no): " check_alerts
 
 if [ "$check_alerts" = "yes" ]; then
-    check_wazuh_alerts "100001\|100002\|100003"
+    check_wazuh_alerts "200001\|200002\|200003"
 fi
 
 echo ""

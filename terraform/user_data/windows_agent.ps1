@@ -8,7 +8,7 @@ Start-Sleep -Seconds 120
 
 # Download Wazuh agent
 Write-Host "Downloading Wazuh agent..."
-$DownloadURL = "https://packages.wazuh.com/4.x/windows/wazuh-agent-4.7.2-1.msi"
+$DownloadURL = "https://packages.wazuh.com/4.x/windows/wazuh-agent-${wazuh_version}${wazuh_package_suffix}.msi"
 $OutputPath = "C:\wazuh-agent.msi"
 
 Invoke-WebRequest -Uri $DownloadURL -OutFile $OutputPath

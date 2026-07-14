@@ -338,16 +338,21 @@ tf-aws-soc/
 
 ## Cost and Cleanup
 
+> **⚠️ Approximate total monthly cost: $80-100/month.**
+> The NAT Gateway alone costs ~$0.045/hr (~$32/month) — about 40% of the total.
+> Always run `terraform destroy` when not actively using the lab.
+
 Approximate always-on lab cost in `us-east-1` with default instance sizes:
 
-| Resource | Default | Notes |
-|---|---|---|
-| CloudTrail management events | S3-backed trail | First management-event copy is free; S3 storage/request charges can still apply. |
-| Wazuh server | `t3.medium` | Required for all-in-one Wazuh lab performance. |
-| Linux endpoint | `t3.micro` | Free-tier eligible in some accounts, subject to AWS terms. |
-| Windows endpoint | `t3.micro` | Windows licensing affects actual cost. |
-| NAT Gateway + EBS | Managed AWS resources | NAT Gateway can be a meaningful hourly cost. |
-| macOS endpoint | Disabled | Requires Dedicated Host if enabled; expensive and minimum host allocation rules apply. |
+| Resource | Default | Approx. $/month | Notes |
+|---|---|---|---|
+| CloudTrail management events | S3-backed trail | ~$0-3 | First management-event copy is free; S3 storage/request charges can still apply. |
+| Wazuh server | `t3.medium` | ~$30 | Required for all-in-one Wazuh lab performance. |
+| Linux endpoint | `t3.micro` | ~$8 | Free-tier eligible in some accounts, subject to AWS terms. |
+| Windows endpoint | `t3.micro` | ~$8 | Windows licensing affects actual cost. |
+| NAT Gateway | Managed | ~$32 | **Most expensive component.** Consider destroying when not in use. |
+| EBS volumes | ~50GB gp3 | ~$4 | Root volumes for instances. |
+| macOS endpoint | Disabled | — | Requires Dedicated Host if enabled; expensive and minimum host allocation rules apply. |
 
 Destroy resources when testing is complete:
 

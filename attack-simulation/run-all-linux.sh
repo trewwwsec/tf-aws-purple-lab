@@ -158,28 +158,28 @@ EXPECTED WAZUH ALERTS
 The following detection rules should have triggered:
 
 Privilege Escalation:
-  • Rule 100020: Sudo command executed
-  • Rule 100021: Suspicious sudo command
-  • Rule 100022: Root shell escalation
-  • Rule 100032: Privileged group modification
+  • Rule 200020: Sudo command executed
+  • Rule 200021: Suspicious sudo command
+  • Rule 200022: Root shell escalation
+  • Rule 200032: Privileged group modification
 
 SSH Brute Force (if executed):
-  • Rule 100001: SSH brute force attack
-  • Rule 100002: Successful login after failures
-  • Rule 100003: Off-hours login
+  • Rule 200001: SSH brute force attack
+  • Rule 200002: Successful login after failures
+  • Rule 200003: Off-hours login
 
 ═══════════════════════════════════════════════════════════
 VERIFICATION STEPS
 ═══════════════════════════════════════════════════════════
 
 1. Check Wazuh Dashboard:
-   Navigate to Security Events and filter by Rule IDs: 100*
+   Navigate to Security Events and filter by Rule IDs: 200*
 
 2. Query via Command Line (on Wazuh server):
-   sudo tail -n 200 /var/ossec/logs/alerts/alerts.log | grep "Rule: 100"
+   sudo tail -n 200 /var/ossec/logs/alerts/alerts.log | grep "Rule: 200"
 
 3. Generate Alert Report:
-   sudo grep "Rule: 100" /var/ossec/logs/alerts/alerts.log | \
+   sudo grep "Rule: 200" /var/ossec/logs/alerts/alerts.log | \
      awk '{print \$7}' | sort | uniq -c
 
 4. Review Individual Logs:
@@ -224,12 +224,12 @@ if [ "$check_alerts" = "yes" ]; then
         ssh "$WAZUH_SERVER" << 'ENDSSH'
 echo "Recent alerts from attack simulations:"
 echo "======================================="
-sudo tail -n 200 /var/ossec/logs/alerts/alerts.log | grep "Rule: 100" | tail -20
+sudo tail -n 200 /var/ossec/logs/alerts/alerts.log | grep "Rule: 200" | tail -20
 
 echo ""
 echo "Alert summary by Rule ID:"
 echo "========================="
-sudo grep "Rule: 100" /var/ossec/logs/alerts/alerts.log | \
+sudo grep "Rule: 200" /var/ossec/logs/alerts/alerts.log | \
   awk '{print $7}' | sort | uniq -c | sort -rn
 ENDSSH
     fi

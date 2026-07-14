@@ -223,7 +223,7 @@ test_base64_http_exfil() {
     done
     log_info "HTTP exfiltration complete"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Base64 encoding (Rule 100101), HTTP upload (Rule 100100)"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Base64 encoding (Rule 200101), HTTP upload (Rule 200100)"
     echo ""
 }
 
@@ -285,7 +285,7 @@ test_cloud_exfil() {
         echo -e "    Not running on AWS instance"
     log_info "Cloud exfil simulation complete"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Cloud CLI usage, IMDS access, Rule 100103"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Cloud CLI usage, IMDS access, Rule 200103"
     echo ""
 }
 
@@ -345,7 +345,7 @@ test_lolbin_transfer() {
     log_info "LOLBin survey complete"
 
     echo ""
-    echo -e "  ${GREEN}Expected Alerts:${NC} Network tool detection (Rule 100261)"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Network tool detection (Rule 200261)"
     echo ""
 }
 
@@ -387,7 +387,7 @@ generate_report() {
 - DNS tunneling → dns_exfil_anomaly/high_entropy_dns, long_dns_queries, dns_volume_spike
 
 ## Verification
-Check Wazuh dashboard for Rules: 100100, 100101, 100102, 100103, 100261
+Check Wazuh dashboard for Rules: 200100, 200101, 200102, 200103, 200261
 Check anomaly detector for: beacon_anomaly, dns_exfil_anomaly categories
 EOF
     echo -e "${GREEN}✓${NC} Report: $report_file"

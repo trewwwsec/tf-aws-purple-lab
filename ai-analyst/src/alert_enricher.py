@@ -280,9 +280,9 @@ class HistoricalAnalyzer:
             "first_seen": (datetime.now() - timedelta(hours=2)).isoformat(),
             "last_seen": datetime.now().isoformat(),
             "event_timeline": [
-                {"time": "-2h", "count": 15, "rule": "100001"},
-                {"time": "-1h", "count": 20, "rule": "100001"},
-                {"time": "-30m", "count": 12, "rule": "100001"},
+                {"time": "-2h", "count": 15, "rule": "200001"},
+                {"time": "-1h", "count": 20, "rule": "200001"},
+                {"time": "-30m", "count": 12, "rule": "200001"},
             ],
             "related_sources": self._related_sources(source_ip, 47),
             "attack_progression": "Sustained brute force attack over 2 hours",
@@ -663,7 +663,7 @@ if __name__ == "__main__":
     sample_alert = {
         "timestamp": datetime.now().isoformat(),
         "rule": {
-            "id": "100001",
+            "id": "200001",
             "level": 10,
             "description": "SSH brute force attack detected",
         },

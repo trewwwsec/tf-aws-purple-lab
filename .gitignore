@@ -2,6 +2,10 @@
 # Local .terraform directories
 .terraform/
 
+# macOS artifacts
+.DS_Store
+**/.DS_Store
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
@@ -9,11 +13,10 @@
 # Crash log files
 crash.log
 
-# Ignore any .tfvars files that are generated automatically for each Terraform run.
-# Most .tfvars files are managed as part of configuration and so should be included in
-# version control.
-#
-# example.tfvars
+# Ignore all .tfvars files (may contain secrets/credentials)
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
 
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in.
@@ -37,10 +40,15 @@ terraform.rc
 # .terraform.lock.hcl
 
 # Dev resources (root-level markdown files except README and LICENSE)
+# Allow common project docs: CHANGELOG, CONTRIBUTING, SECURITY, etc.
 /*.md
 !README.md
 !LICENSE
 !LICENSE.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!SECURITY.md
+!CODE_OF_CONDUCT.md
 
 # deployment data
 deployments-outputs*

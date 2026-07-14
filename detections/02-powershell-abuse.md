@@ -177,12 +177,12 @@ Invoke-AtomicTest T1003.001 -TestNumbers 1
 ### Verification
 ```bash
 # On Wazuh server
-tail -f /var/ossec/logs/alerts/alerts.log | grep "10001[0-4]"
+tail -f /var/ossec/logs/alerts/alerts.log | grep "20001[0-4]"
 
 # Or query via API
 curl -k -X GET "https://localhost:55000/security_events" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"rule.id":"10001*"}'
+  -d '{"rule.id":"20001*"}'
 ```
 
 ## False Positive Scenarios
@@ -301,7 +301,7 @@ Get-NetTCPConnection | Where-Object {$_.OwningProcess -in (Get-Process powershel
   "query": {
     "bool": {
       "must": [
-        {"match": {"rule.id": "10001*"}},
+        {"match": {"rule.id": "20001*"}},
         {"range": {"timestamp": {"gte": "now-24h"}}}
       ]
     }

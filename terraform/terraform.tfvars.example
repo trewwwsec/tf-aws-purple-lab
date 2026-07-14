@@ -63,16 +63,23 @@ endpoint_instance_type = "t3.micro"
 # COST ESTIMATES (us-east-1 pricing)
 # =============================================================================
 #
+# ⚠️  WARNING: Total monthly cost is approximately $80-100/month.
+#    The NAT Gateway alone costs ~$32/month (~40% of total).
+#    Destroy resources when not in use!
+#
 # Component               | Type       | $/hour  | $/day   | $/month
 # ----------------------- | ---------- | ------- | ------- | -------
+# NAT Gateway             | Managed    | $0.045  | $1.08   | $32.40
 # Wazuh Server            | t3.medium  | $0.0416 | $1.00   | $30.00
 # Linux Endpoint          | t3.micro   | $0.0104 | $0.25   | $7.50
 # Windows Endpoint        | t3.micro   | $0.0104 | $0.25   | $7.50
+# EBS Volumes (~50GB)     | gp3        | $0.0055 | $0.13   | $4.00
+# Data Transfer (est.)    | varies     | —       | —       | $5-10
 # ----------------------- | ---------- | ------- | ------- | -------
-# Total (approx)          |            | $0.06   | $1.50   | $45.00
+# Total (approx)          |            | ~$0.08  | ~$3.00  | $80-100
 #
-# Note: EBS volumes, data transfer may add minor additional costs
-# REMEMBER: Run 'terraform destroy' when not using!
+# Use the AWS Pricing Calculator for precise estimates:
+# https://calculator.aws/
 # =============================================================================
 
 # -----------------------------------------------------------------------------
