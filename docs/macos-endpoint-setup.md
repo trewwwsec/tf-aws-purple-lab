@@ -27,7 +27,7 @@ The easiest way to test macOS detection is to install the Wazuh agent on your lo
 ```bash
 # Get your Wazuh server IP
 cd terraform
-WAZUH_IP=$(terraform output -raw wazuh_public_ip)
+WAZUH_IP=$(terraform output -raw wazuh_server_public_ip)
 
 # Run the setup script
 cd ..

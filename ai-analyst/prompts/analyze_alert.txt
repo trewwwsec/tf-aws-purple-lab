@@ -12,7 +12,7 @@ GUIDELINES:
 - Create a descriptive title that summarizes the threat
 - Include key context (target, source, technique)
 - Example: "Targeted SSH Brute Force Against Root Account from Known Malicious IP"
-- Avoid: "Rule 100001 triggered" or just repeating the rule description
+- Avoid: "Rule 200001 triggered" or just repeating the rule description
 
 **Summary Writing:**
 - Start with what happened

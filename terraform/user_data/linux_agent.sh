@@ -14,8 +14,8 @@ sleep 120
 
 # Install Wazuh agent
 echo "Installing Wazuh agent..."
-curl -so wazuh-agent-4.7.2.deb https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.7.2-1_amd64.deb
-WAZUH_MANAGER="$WAZUH_MANAGER_IP" dpkg -i wazuh-agent-4.7.2.deb
+curl -so wazuh-agent-${wazuh_version}.deb https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_${wazuh_version}${wazuh_package_suffix}_amd64.deb
+WAZUH_MANAGER="$WAZUH_MANAGER_IP" dpkg -i wazuh-agent-${wazuh_version}.deb
 
 # Enable and start agent
 systemctl daemon-reload

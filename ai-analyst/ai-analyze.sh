@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Wazuh active-response hook entry-point: analyzes alert payload from stdin.
+# The payload is expected to be a raw Wazuh alert JSON or an active-response
+# wrapper containing the alert at `alert` or `parameters.alert`.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,14 +13,10 @@ if [[ ! -f "${ANALYZE_SCRIPT}" ]]; then
   exit 1
 fi
 
-PAYLOAD_FILE="$(mktemp /tmp/ai-analyze.XXXXXX.json)"
-trap 'rm -f "${PAYLOAD_FILE}"' EXIT
-
-cat > "${PAYLOAD_FILE}"
-
-if [[ ! -s "${PAYLOAD_FILE}" ]]; then
-  echo "Empty active response payload" >&2
+# Validate stdin is not a TTY (should be piped from active-response hook)
+if [[ -t 0 ]]; then
+  echo "No data on stdin. This script is meant to be called by a Wazuh active-response hook." >&2
   exit 1
 fi
 
-exec python3 "${ANALYZE_SCRIPT}" --alert-file "${PAYLOAD_FILE}" --output json --mode "${RUNTIME_MODE}"
+exec python3 "${ANALYZE_SCRIPT}" --stdin --output json --mode "${RUNTIME_MODE}"

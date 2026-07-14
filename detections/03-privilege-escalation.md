@@ -194,7 +194,7 @@ net user testuser /delete
 ### Verification
 ```bash
 # On Wazuh server
-tail -f /var/ossec/logs/alerts/alerts.log | grep "10002[0-3]\|10003[2-3]"
+tail -f /var/ossec/logs/alerts/alerts.log | grep "20002[0-3]\|20003[2-3]"
 
 # Query specific rule
 /var/ossec/bin/wazuh-logtest

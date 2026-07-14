@@ -19,6 +19,33 @@ WAZUH_SERVER="${WAZUH_SERVER:-localhost}"
 ALERT_LOG="/var/ossec/logs/alerts/alerts.log"
 TEST_RESULTS_DIR="./test-results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+REMOTE_MODE=false
+
+# Detect if running remotely (WAZUH_SERVER is not localhost and SSH is available)
+if [ "$WAZUH_SERVER" != "localhost" ] && command -v ssh &> /dev/null; then
+    REMOTE_MODE=true
+    echo -e "${BLUE}Remote mode: executing on $WAZUH_SERVER via SSH${NC}"
+fi
+
+# Wrapper for alert log access (local or remote)
+get_alert_tail() {
+    local lines=${1:-50}
+    if [ "$REMOTE_MODE" = true ]; then
+        ssh "$WAZUH_SERVER" "sudo tail -n $lines $ALERT_LOG"
+    else
+        sudo tail -n "$lines" "$ALERT_LOG"
+    fi
+}
+
+get_alert_grep() {
+    local rule_id=$1
+    local lines=${2:-200}
+    if [ "$REMOTE_MODE" = true ]; then
+        ssh "$WAZUH_SERVER" "sudo tail -n $lines $ALERT_LOG | grep 'Rule: $rule_id'"
+    else
+        sudo tail -n "$lines" "$ALERT_LOG" | grep "Rule: $rule_id"
+    fi
+}
 
 # Create results directory
 mkdir -p "$TEST_RESULTS_DIR"
@@ -43,9 +70,9 @@ check_alert() {
     echo -e "Waiting for alert (Rule ID: ${rule_id}, Timeout: ${timeout}s)..."
     
     while [ $(($(date +%s) - start_time)) -lt $timeout ]; do
-        if sudo tail -n 50 "$ALERT_LOG" | grep -q "Rule: $rule_id"; then
+        if get_alert_grep "$rule_id" 50 | grep -q "Rule: $rule_id"; then
             echo -e "${GREEN}✓ Alert detected!${NC}"
-            sudo tail -n 20 "$ALERT_LOG" | grep -A 10 "Rule: $rule_id" | head -15
+            get_alert_tail 20 | grep -A 10 "Rule: $rule_id" | head -15
             return 0
         fi
         sleep 1
@@ -55,9 +82,9 @@ check_alert() {
     return 1
 }
 
-# Function to test SSH brute force (Rule 100001)
+# Function to test SSH brute force (Rule 200001)
 test_ssh_brute_force() {
-    print_test_header "SSH Brute Force Detection (Rule 100001)"
+    print_test_header "SSH Brute Force Detection (Rule 200001)"
     
     echo "Simulating 6 failed SSH login attempts..."
     
@@ -74,12 +101,12 @@ test_ssh_brute_force() {
         sleep 1
     done
     
-    check_alert "100001" 15
+    check_alert "200001" 15
 }
 
-# Function to test PowerShell encoded command (Rule 100010)
+# Function to test PowerShell encoded command (Rule 200010)
 test_powershell_encoded() {
-    print_test_header "PowerShell Encoded Command (Rule 100010)"
+    print_test_header "PowerShell Encoded Command (Rule 200010)"
     
     if [ -z "$WINDOWS_TARGET" ]; then
         echo -e "${YELLOW}⚠ WINDOWS_TARGET not set. Showing test command.${NC}"
@@ -98,12 +125,12 @@ test_powershell_encoded() {
     echo "Executing encoded PowerShell command on $WINDOWS_TARGET..."
     # Add WinRM execution here if configured
     
-    check_alert "100010" 15
+    check_alert "200010" 15
 }
 
-# Function to test sudo abuse (Rule 100021)
+# Function to test sudo abuse (Rule 200021)
 test_sudo_abuse() {
-    print_test_header "Sudo Abuse Detection (Rule 100021)"
+    print_test_header "Sudo Abuse Detection (Rule 200021)"
     
     if [ -z "$LINUX_TARGET" ]; then
         echo "Testing on local system..."
@@ -113,17 +140,17 @@ test_sudo_abuse() {
     echo "Executing suspicious sudo command..."
     
     if [ "$LINUX_TARGET" = "localhost" ]; then
-        sudo bash -c "echo 'Detection test - Rule 100021'" || true
+        sudo bash -c "echo 'Detection test - Rule 200021'" || true
     else
         ssh "$LINUX_TARGET" "sudo bash -c 'echo Detection test'" || true
     fi
     
-    check_alert "100021" 15
+    check_alert "200021" 15
 }
 
-# Function to test file integrity monitoring (Rule 100050)
+# Function to test file integrity monitoring (Rule 200050)
 test_file_integrity() {
-    print_test_header "File Integrity Monitoring (Rule 100050)"
+    print_test_header "File Integrity Monitoring (Rule 200050)"
     
     if [ -z "$LINUX_TARGET" ]; then
         echo "Testing on local system..."
@@ -147,12 +174,12 @@ test_file_integrity() {
                              sudo mv /etc/hosts.backup.test /etc/hosts" || true
     fi
     
-    check_alert "100050" 15
+    check_alert "200050" 15
 }
 
-# Function to test user creation (Rule 100030)
+# Function to test user creation (Rule 200030)
 test_user_creation() {
-    print_test_header "User Creation Detection (Rule 100030)"
+    print_test_header "User Creation Detection (Rule 200030)"
     
     if [ -z "$LINUX_TARGET" ]; then
         echo "Testing on local system..."
@@ -169,12 +196,12 @@ test_user_creation() {
         ssh "$LINUX_TARGET" "sudo useradd testdetection && sleep 2 && sudo userdel testdetection" || true
     fi
     
-    check_alert "100030" 15
+    check_alert "200030" 15
 }
 
-# Function to test cron job creation (Rule 100060)
+# Function to test cron job creation (Rule 200060)
 test_cron_persistence() {
-    print_test_header "Cron Job Persistence (Rule 100060)"
+    print_test_header "Cron Job Persistence (Rule 200060)"
     
     if [ -z "$LINUX_TARGET" ]; then
         echo "Testing on local system..."
@@ -195,7 +222,7 @@ test_cron_persistence() {
                              crontab -l | grep -v '# Test' | crontab -" || true
     fi
     
-    check_alert "100060" 15
+    check_alert "200060" 15
 }
 
 # Function to generate test report
@@ -215,12 +242,12 @@ generate_report() {
         echo "----------------------------------------"
         
         # Count alerts generated in last 10 minutes
-        local recent_alerts=$(sudo tail -n 1000 "$ALERT_LOG" | grep -c "Rule: 100" || echo "0")
+        local recent_alerts=$(get_alert_grep "200" 1000 | wc -l || echo "0")
         echo "Total alerts generated: $recent_alerts"
         
         echo ""
         echo "Alerts by Rule ID:"
-        sudo tail -n 1000 "$ALERT_LOG" | grep "Rule: 100" | awk '{print $7}' | sort | uniq -c || true
+        get_alert_grep "200" 1000 | awk '{print $7}' | sort | uniq -c || true
         
     } | tee "$report_file"
     
@@ -253,13 +280,17 @@ run_all_tests() {
 monitor_alerts() {
     print_test_header "Real-time Alert Monitoring"
     
-    echo "Monitoring alerts for custom rules (100xxx)..."
+    echo "Monitoring alerts for custom rules (200xxx)..."
     echo "Press Ctrl+C to stop"
     echo ""
     
-    sudo tail -f "$ALERT_LOG" | grep --line-buffered "Rule: 100" | while read -r line; do
-        echo -e "${GREEN}[ALERT]${NC} $line"
-    done
+    if [ "$REMOTE_MODE" = true ]; then
+        ssh "$WAZUH_SERVER" "sudo tail -f $ALERT_LOG | grep --line-buffered 'Rule: 200'"
+    else
+        sudo tail -f "$ALERT_LOG" | grep --line-buffered "Rule: 200" | while read -r line; do
+            echo -e "${GREEN}[ALERT]${NC} $line"
+        done
+    fi
 }
 
 # Function to show usage

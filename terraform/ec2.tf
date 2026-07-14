@@ -65,6 +65,13 @@ resource "aws_instance" "wazuh_server" {
 resource "null_resource" "deploy_detection_rules" {
   depends_on = [aws_instance.wazuh_server]
 
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(var.ssh_private_key_path)
+    host        = aws_instance.wazuh_server.public_ip
+  }
+
   # Trigger redeployment when rules change
   triggers = {
     local_rules_hash = filemd5("${path.module}/../wazuh/custom_rules/local_rules.xml")
@@ -80,26 +87,12 @@ resource "null_resource" "deploy_detection_rules" {
   provisioner "file" {
     source      = "${path.module}/../wazuh/custom_rules/local_rules.xml"
     destination = "/tmp/local_rules.xml"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ssh_private_key_path)
-      host        = aws_instance.wazuh_server.public_ip
-    }
   }
 
   # Copy macos_rules.xml
   provisioner "file" {
     source      = "${path.module}/../wazuh/custom_rules/macos_rules.xml"
     destination = "/tmp/macos_rules.xml"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ssh_private_key_path)
-      host        = aws_instance.wazuh_server.public_ip
-    }
   }
 
   # Deploy rules and restart Wazuh
@@ -125,7 +118,7 @@ resource "null_resource" "deploy_detection_rules" {
       "cd /tmp",
       "curl -sO https://raw.githubusercontent.com/socfortress/Wazuh-Rules/main/wazuh_socfortress_rules.sh",
       "chmod +x wazuh_socfortress_rules.sh",
-      "sudo bash wazuh_socfortress_rules.sh",
+      "sudo yes | bash wazuh_socfortress_rules.sh",
       "echo '✓ SOCFortress rules installed'",
 
       # Restart Wazuh manager to load all rules
@@ -155,13 +148,6 @@ resource "null_resource" "deploy_detection_rules" {
       "echo ''",
       "echo 'Total: 2000+ MITRE ATT&CK mapped rules'"
     ]
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(var.ssh_private_key_path)
-      host        = aws_instance.wazuh_server.public_ip
-    }
   }
 }
 
@@ -182,7 +168,9 @@ resource "aws_instance" "linux_endpoint" {
   }
 
   user_data = templatefile("${path.module}/user_data/linux_agent.sh", {
-    wazuh_server_ip = aws_instance.wazuh_server.private_ip
+    wazuh_server_ip     = aws_instance.wazuh_server.private_ip
+    wazuh_version       = var.wazuh_version
+    wazuh_package_suffix = var.wazuh_package_suffix
   })
 
   tags = {
@@ -210,7 +198,9 @@ resource "aws_instance" "windows_endpoint" {
   }
 
   user_data = templatefile("${path.module}/user_data/windows_agent.ps1", {
-    wazuh_server_ip = aws_instance.wazuh_server.private_ip
+    wazuh_server_ip     = aws_instance.wazuh_server.private_ip
+    wazuh_version       = var.wazuh_version
+    wazuh_package_suffix = var.wazuh_package_suffix
   })
 
   tags = {
@@ -301,6 +291,7 @@ resource "aws_instance" "macos_endpoint" {
   user_data = base64encode(templatefile("${path.module}/user_data/macos_endpoint.sh", {
     wazuh_server_ip = aws_instance.wazuh_server.private_ip
     agent_name      = "macos-endpoint-01"
+    wazuh_version   = var.wazuh_version
   }))
 
   tags = {
