@@ -2,7 +2,7 @@
 #
 # Privilege Escalation Attack Simulation
 # MITRE ATT&CK: T1548.003 - Sudo and Sudo Caching
-# Tests Detection Rules: 100020, 100021, 100022, 100032
+# Tests Detection Rules: 200020, 200021, 200022, 200032
 #
 # ⚠️  WARNING: Only run in isolated lab environment!
 #
@@ -27,47 +27,47 @@ echo ""
 log_info "Starting privilege escalation simulation..."
 echo ""
 
-# Test 1: Basic Sudo Usage (Rule 100020 - Baseline)
+# Test 1: Basic Sudo Usage (Rule 200020 - Baseline)
 echo -e "${BLUE}[TEST 1]${NC} Basic sudo command execution"
-echo "Expected Detection: Rule 100020 (Informational - sudo usage)"
+echo "Expected Detection: Rule 200020 (Informational - sudo usage)"
 echo "----------------------------------------"
 
 log_info "Executing basic sudo command"
 sudo echo "Testing basic sudo detection"
 
 echo -e "${GREEN}✓ Basic sudo command executed${NC}"
-echo "This should trigger Rule 100020 (severity: low/informational)"
+echo "This should trigger Rule 200020 (severity: low/informational)"
 sleep 2
 echo ""
 
-# Test 2: Suspicious Sudo with Bash (Rule 100021)
+# Test 2: Suspicious Sudo with Bash (Rule 200021)
 echo -e "${BLUE}[TEST 2]${NC} Suspicious sudo command - bash"
-echo "Expected Detection: Rule 100021 (Suspicious sudo command)"
+echo "Expected Detection: Rule 200021 (Suspicious sudo command)"
 echo "----------------------------------------"
 
 log_info "Executing sudo with bash (suspicious pattern)"
 sudo bash -c "echo 'This is a suspicious sudo pattern'"
 
 echo -e "${GREEN}✓ Sudo with bash executed${NC}"
-echo "This should trigger Rule 100021 (severity: high)"
+echo "This should trigger Rule 200021 (severity: high)"
 sleep 2
 echo ""
 
-# Test 3: Sudo with Python (Rule 100021)
+# Test 3: Sudo with Python (Rule 200021)
 echo -e "${BLUE}[TEST 3]${NC} Suspicious sudo command - python"
-echo "Expected Detection: Rule 100021 (Suspicious sudo command)"
+echo "Expected Detection: Rule 200021 (Suspicious sudo command)"
 echo "----------------------------------------"
 
 if command -v python3 &> /dev/null; then
     log_info "Executing sudo with python3 (suspicious pattern)"
     sudo python3 -c "print('Testing sudo python detection')"
     echo -e "${GREEN}✓ Sudo with python executed${NC}"
-    echo "This should trigger Rule 100021 (severity: high)"
+    echo "This should trigger Rule 200021 (severity: high)"
 elif command -v python &> /dev/null; then
     log_info "Executing sudo with python (suspicious pattern)"
     sudo python -c "print('Testing sudo python detection')"
     echo -e "${GREEN}✓ Sudo with python executed${NC}"
-    echo "This should trigger Rule 100021 (severity: high)"
+    echo "This should trigger Rule 200021 (severity: high)"
 else
     echo -e "${YELLOW}⚠ Python not found, skipping this test${NC}"
 fi
@@ -75,16 +75,16 @@ fi
 sleep 2
 echo ""
 
-# Test 4: Sudo with Netcat (Rule 100021) - if available
+# Test 4: Sudo with Netcat (Rule 200021) - if available
 echo -e "${BLUE}[TEST 4]${NC} Suspicious sudo command - netcat"
-echo "Expected Detection: Rule 100021 (Suspicious sudo command)"
+echo "Expected Detection: Rule 200021 (Suspicious sudo command)"
 echo "----------------------------------------"
 
 if command -v nc &> /dev/null; then
     log_info "Executing sudo with netcat (suspicious pattern)"
     sudo nc -h > /dev/null 2>&1 || true
     echo -e "${GREEN}✓ Sudo with netcat executed${NC}"
-    echo "This should trigger Rule 100021 (severity: high)"
+    echo "This should trigger Rule 200021 (severity: high)"
 else
     echo -e "${YELLOW}⚠ Netcat not found, skipping this test${NC}"
 fi
@@ -92,9 +92,9 @@ fi
 sleep 2
 echo ""
 
-# Test 5: Sudo Shell Escalation (Rule 100022)
+# Test 5: Sudo Shell Escalation (Rule 200022)
 echo -e "${BLUE}[TEST 5]${NC} Sudo shell escalation attempt"
-echo "Expected Detection: Rule 100022 (Root shell escalation)"
+echo "Expected Detection: Rule 200022 (Root shell escalation)"
 echo "----------------------------------------"
 
 log_info "Simulating sudo shell escalation"
@@ -104,13 +104,13 @@ echo "Simulating: sudo -i"
 sudo bash -c "echo 'Interactive root shell simulation'"
 
 echo -e "${GREEN}✓ Sudo shell escalation simulated${NC}"
-echo "This should trigger Rule 100022 (severity: high)"
+echo "This should trigger Rule 200022 (severity: high)"
 sleep 2
 echo ""
 
-# Test 6: User Added to Sudo Group (Rule 100032)
+# Test 6: User Added to Sudo Group (Rule 200032)
 echo -e "${BLUE}[TEST 6]${NC} Adding user to privileged group"
-echo "Expected Detection: Rule 100032 (Privileged group modification)"
+echo "Expected Detection: Rule 200032 (Privileged group modification)"
 echo "----------------------------------------"
 
 # Create a temporary test user
@@ -132,13 +132,13 @@ if getent group sudo > /dev/null 2>&1; then
     log_info "Adding user to sudo group (privilege escalation)"
     sudo usermod -aG sudo "$TEST_USER"
     echo -e "${GREEN}✓ User added to sudo group${NC}"
-    echo "This should trigger Rule 100032 (severity: high)"
+    echo "This should trigger Rule 200032 (severity: high)"
 elif getent group wheel > /dev/null 2>&1; then
     echo "Adding $TEST_USER to wheel group..."
     log_info "Adding user to wheel group (privilege escalation)"
     sudo usermod -aG wheel "$TEST_USER"
     echo -e "${GREEN}✓ User added to wheel group${NC}"
-    echo "This should trigger Rule 100032 (severity: high)"
+    echo "This should trigger Rule 200032 (severity: high)"
 else
     echo -e "${YELLOW}⚠ No sudo/wheel group found${NC}"
 fi
@@ -146,9 +146,9 @@ fi
 sleep 2
 echo ""
 
-# Test 7: Sudoers File Modification (Rule 100032)
+# Test 7: Sudoers File Modification (Rule 200032)
 echo -e "${BLUE}[TEST 7]${NC} Sudoers file modification detection"
-echo "Expected Detection: Rule 100032 (Privileged group modification)"
+echo "Expected Detection: Rule 200032 (Privileged group modification)"
 echo "----------------------------------------"
 
 echo "Simulating sudoers file access..."
@@ -181,24 +181,24 @@ echo "Simulation Type: Privilege Escalation"
 echo "MITRE ATT&CK: T1548.003 - Sudo and Sudo Caching"
 echo ""
 echo "Tests Executed:"
-echo "  1. Basic sudo usage (Rule 100020)"
-echo "  2. Sudo with bash (Rule 100021)"
-echo "  3. Sudo with python (Rule 100021)"
-echo "  4. Sudo with netcat (Rule 100021)"
-echo "  5. Sudo shell escalation (Rule 100022)"
-echo "  6. User added to sudo group (Rule 100032)"
-echo "  7. Sudoers file access (Rule 100032)"
+echo "  1. Basic sudo usage (Rule 200020)"
+echo "  2. Sudo with bash (Rule 200021)"
+echo "  3. Sudo with python (Rule 200021)"
+echo "  4. Sudo with netcat (Rule 200021)"
+echo "  5. Sudo shell escalation (Rule 200022)"
+echo "  6. User added to sudo group (Rule 200032)"
+echo "  7. Sudoers file access (Rule 200032)"
 echo ""
 print_section "🎯" "Expected Wazuh Alerts"
-echo "  • Rule 100020: Sudo command executed (informational)"
-echo "  • Rule 100021: Suspicious sudo command (high severity)"
-echo "  • Rule 100022: Root shell escalation (high severity)"
-echo "  • Rule 100032: Privileged group modification (high severity)"
+echo "  • Rule 200020: Sudo command executed (informational)"
+echo "  • Rule 200021: Suspicious sudo command (high severity)"
+echo "  • Rule 200022: Root shell escalation (high severity)"
+echo "  • Rule 200032: Privileged group modification (high severity)"
 echo ""
 print_section "📋" "Verification Steps"
 echo "1. Check Wazuh dashboard for alerts"
 echo "2. Or run on Wazuh server:"
-echo "   sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep '10002[0-2]\\|100032'"
+echo "   sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep '20002[0-2]\\|200032'"
 echo ""
 
 # Verification helper
@@ -206,7 +206,7 @@ echo ""
 read -p "Would you like to check for alerts now? (yes/no): " check_alerts
 
 if [ "$check_alerts" = "yes" ]; then
-    check_wazuh_alerts "10002\|100032"
+    check_wazuh_alerts "20002\|200032"
 fi
 
 echo ""

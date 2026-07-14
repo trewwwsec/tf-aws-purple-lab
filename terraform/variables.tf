@@ -122,3 +122,15 @@ variable "cloudtrail_multi_region" {
   type        = bool
   default     = false
 }
+
+variable "wazuh_version" {
+  description = "Wazuh version to install (used in package URLs)"
+  type        = string
+  default     = "4.7.2"
+}
+
+variable "wazuh_package_suffix" {
+  description = "Wazuh package version suffix (e.g., -1 for deb/rpm, blank for macOS)"
+  type        = string
+  default     = "-1"
+}

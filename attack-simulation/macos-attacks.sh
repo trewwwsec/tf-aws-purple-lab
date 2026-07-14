@@ -129,7 +129,7 @@ test_persistence() {
 </plist>
 EOF
     
-    print_expected "Rule 100200 - Launch Agent created"
+    print_expected "Rule 200200 - Launch Agent created"
     sleep 2
     
     # Cleanup
@@ -139,7 +139,7 @@ EOF
     # Test 2: Login Items simulation (T1547.015)
     print_test "Simulating Login Items access (T1547.015)"
     ls -la "$HOME/Library/Application Support/com.apple.backgroundtaskmanagementagent/" 2>/dev/null || true
-    print_expected "Rule 100202 - Login Items accessed"
+    print_expected "Rule 200202 - Login Items accessed"
     sleep 1
     
     log "Persistence tests completed"
@@ -155,19 +155,19 @@ test_execution() {
     # Test 1: osascript execution (T1059.002)
     print_test "Executing AppleScript via osascript (T1059.002)"
     osascript -e 'display notification "SOC Platform Test" with title "Security Test"' 2>/dev/null || true
-    print_expected "Rule 100210 - osascript executed"
+    print_expected "Rule 200210 - osascript executed"
     sleep 1
     
     # Test 2: osascript with shell command (T1059.002 + T1059.004)
     print_test "osascript executing shell command (T1059.002)"
     osascript -e 'do shell script "echo SOC Platform Test"' 2>/dev/null || true
-    print_expected "Rule 100212 - osascript shell execution"
+    print_expected "Rule 200212 - osascript shell execution"
     sleep 1
     
     # Test 3: JavaScript for Automation (JXA)
     print_test "JavaScript for Automation execution (T1059.007)"
     osascript -l JavaScript -e 'var app = Application.currentApplication(); app.includeStandardAdditions = true; "SOC Test"' 2>/dev/null || true
-    print_expected "Rule 100211 - JXA execution"
+    print_expected "Rule 200211 - JXA execution"
     sleep 1
     
     log "Execution tests completed"
@@ -184,20 +184,20 @@ test_credential_access() {
     print_test "Keychain enumeration attempt (T1555.001)"
     # Safe: just lists keychains, doesn't dump credentials
     security list-keychains 2>/dev/null || true
-    print_expected "Rule 100220/100221 - Keychain access"
+    print_expected "Rule 200220/200221 - Keychain access"
     sleep 1
     
     # Test 2: Check for SSH keys (T1552.004)
     print_test "SSH key enumeration (T1552.004)"
     ls -la ~/.ssh/ 2>/dev/null || true
-    print_expected "Rule 100224 - SSH key access"
+    print_expected "Rule 200224 - SSH key access"
     sleep 1
     
     # Test 3: Simulate browser credential file check
     print_test "Browser credential file discovery"
     find ~/Library/Application\ Support/Google/Chrome -name "Login Data" 2>/dev/null || echo "Chrome not installed"
     find ~/Library/Safari -name "*.plist" -maxdepth 1 2>/dev/null | head -3 || true
-    print_expected "Rule 100222/100223 - Browser credential access"
+    print_expected "Rule 200222/200223 - Browser credential access"
     sleep 1
     
     log "Credential access tests completed"
@@ -213,25 +213,25 @@ test_defense_evasion() {
     # Test 1: Gatekeeper status check (T1553.001)
     print_test "Gatekeeper status check (T1553.001)"
     spctl --status 2>/dev/null || true
-    print_expected "Rule 100230 - Gatekeeper check"
+    print_expected "Rule 200230 - Gatekeeper check"
     sleep 1
     
     # Test 2: SIP status check (T1518.001)
     print_test "SIP status check (T1518.001)"
     csrutil status 2>/dev/null || true
-    print_expected "Rule 100231 - SIP status checked"
+    print_expected "Rule 200231 - SIP status checked"
     sleep 1
     
     # Test 3: Firewall status check
     print_test "Firewall status check"
     /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null || true
-    print_expected "Rule 100234 - Firewall status check"
+    print_expected "Rule 200234 - Firewall status check"
     sleep 1
     
     # Test 4: Quarantine attribute listing
     print_test "Checking quarantine attributes (T1553.001)"
     xattr -l /Applications/*.app 2>/dev/null | head -5 || true
-    print_expected "Rule 100230 - Quarantine attribute check"
+    print_expected "Rule 200230 - Quarantine attribute check"
     sleep 1
     
     log "Defense evasion tests completed"
@@ -247,25 +247,25 @@ test_discovery() {
     # Test 1: System information gathering (T1082)
     print_test "System profiler execution (T1082)"
     system_profiler SPHardwareDataType 2>/dev/null | head -10 || true
-    print_expected "Rule 100240 - system_profiler executed"
+    print_expected "Rule 200240 - system_profiler executed"
     sleep 1
     
     # Test 2: Network configuration (T1016)
     print_test "Network configuration discovery (T1016)"
     networksetup -listallhardwareports 2>/dev/null | head -10 || true
-    print_expected "Rule 100241 - Network discovery"
+    print_expected "Rule 200241 - Network discovery"
     sleep 1
     
     # Test 3: Directory Services enumeration (T1087.002)
     print_test "Directory Services enumeration (T1087)"
     dscl . -list /Users 2>/dev/null | head -5 || true
-    print_expected "Rule 100242 - Directory Services enum"
+    print_expected "Rule 200242 - Directory Services enum"
     sleep 1
     
     # Test 4: Installed applications (T1518)
     print_test "Installed applications enumeration (T1518)"
     pkgutil --pkgs 2>/dev/null | head -5 || true
-    print_expected "Rule 100243 - Application enumeration"
+    print_expected "Rule 200243 - Application enumeration"
     sleep 1
     
     log "Discovery tests completed"
@@ -284,7 +284,7 @@ test_collection() {
     TEMP_SCREEN="/tmp/soc_test_screen_${TIMESTAMP}.png"
     screencapture -x "$TEMP_SCREEN" 2>/dev/null || true
     rm -f "$TEMP_SCREEN"
-    print_expected "Rule 100250 - Screen capture"
+    print_expected "Rule 200250 - Screen capture"
     echo -e "    ${GREEN}✓${NC} Temporary screenshot removed"
     sleep 1
     
@@ -292,13 +292,13 @@ test_collection() {
     print_test "Clipboard access (T1115)"
     echo "SOC Test Data" | pbcopy
     pbpaste > /dev/null 2>&1 || true
-    print_expected "Rule 100251 - Clipboard access"
+    print_expected "Rule 200251 - Clipboard access"
     sleep 1
     
     # Test 3: Find sensitive files (T1083)
     print_test "Searching for sensitive files (T1083)"
     find /tmp -name "*.pem" -o -name "*.key" 2>/dev/null | head -3 || true
-    print_expected "Rule 100252 - Sensitive file search"
+    print_expected "Rule 200252 - Sensitive file search"
     sleep 1
     
     log "Collection tests completed"
@@ -314,13 +314,13 @@ test_command_control() {
     # Test 1: SSH tunnel syntax check (T1572)
     print_test "SSH tunnel command syntax (T1572)"
     echo "Would execute: ssh -D 8080 user@host (not actually connecting)"
-    print_expected "Rule 100260 - SSH tunnel"
+    print_expected "Rule 200260 - SSH tunnel"
     sleep 1
     
     # Test 2: Check for nc/netcat (T1095)
     print_test "Checking for network tools (T1095)"
     which nc ncat netcat 2>/dev/null || echo "Standard network tools not found"
-    print_expected "Rule 100261 - Network tool presence"
+    print_expected "Rule 200261 - Network tool presence"
     sleep 1
     
     log "C2 tests completed"
@@ -383,13 +383,13 @@ generate_report() {
 ## Expected Alerts
 
 Check your Wazuh dashboard for the following rule IDs:
-- 100200-100204: Persistence
-- 100210-100213: Execution
-- 100220-100224: Credential Access
-- 100230-100234: Defense Evasion
-- 100240-100243: Discovery
-- 100250-100252: Collection
-- 100260-100262: Command & Control
+- 200200-200204: Persistence
+- 200210-200213: Execution
+- 200220-200224: Credential Access
+- 200230-200234: Defense Evasion
+- 200240-200243: Discovery
+- 200250-200252: Collection
+- 200260-200262: Command & Control
 
 ## Log File
 Full execution log: ${LOG_FILE}

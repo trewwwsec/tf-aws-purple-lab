@@ -286,7 +286,7 @@ test_log_tampering() {
     echo -e "    Created and removed test log artifact"
     log_info "Log tampering simulation complete"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100052 (history deletion), log access events"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 200052 (history deletion), log access events"
     echo ""
 }
 

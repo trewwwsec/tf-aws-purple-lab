@@ -82,6 +82,20 @@ Wazuh config fragment:
 </active-response>
 ```
 
+## CORS Configuration
+
+The API server supports Cross-Origin Resource Sharing (CORS) for browser-based
+dashboards that consume the AI analyst API. By default, CORS is **disabled**
+(`api.enable_cors: false` in `config/settings.yaml`).
+
+To enable CORS, set `api.enable_cors: true` in your settings. When enabling CORS,
+ensure that `api.require_auth: true` (the default) to prevent unauthenticated
+cross-origin requests from accessing the API.
+
+**Security recommendation:** Keep CORS disabled unless you are serving a
+browser-based dashboard. If enabled, use a reverse proxy (nginx/Caddy) to
+restrict allowed origins to your specific dashboard domain.
+
 ## Least-Privilege Notes
 
 - Keep API bound to `127.0.0.1` unless reverse-proxied behind authenticated ingress.

