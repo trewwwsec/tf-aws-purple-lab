@@ -1,7 +1,7 @@
 {
     "timestamp": "2026-01-28T10:32:15.000Z",
     "rule": {
-        "id": "100001",
+        "id": "200001",
         "level": 10,
         "description": "SSH brute force attack detected",
         "mitre": {

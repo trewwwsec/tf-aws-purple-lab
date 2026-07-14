@@ -7,6 +7,15 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  # Uncomment and configure for remote state with encryption and locking:
+  # backend "s3" {
+  #   bucket         = "tf-state-<account-id>-<region>"
+  #   key            = "cloud-soc/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   encrypt        = true
+  #   dynamodb_table = "terraform-state-lock"
+  # }
 }
 
 provider "aws" {

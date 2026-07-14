@@ -275,7 +275,7 @@ rag:
     port: 9200
     username: "admin"
     use_ssl: true
-    verify_certs: false
+    verify_certs: true  # Must be true in strict mode (false only allowed in demo mode)
   
   retrieval:
     similarity_threshold: 0.7  # Min similarity score (0-1)

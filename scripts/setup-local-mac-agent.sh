@@ -53,7 +53,7 @@ if [ -z "$1" ]; then
     echo ""
     echo "Example:"
     echo "  $0 10.0.1.100"
-    echo "  $0 \$(terraform output -raw wazuh_public_ip)"
+    echo "  $0 \$(terraform output -raw wazuh_server_public_ip)"
     exit 1
 fi
 

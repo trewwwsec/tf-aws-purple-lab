@@ -22,7 +22,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "wazuh": {
         "host": "localhost",
         "port": 55000,
-        "user": "wazuh",
+        "user": "wazuh-wui",  # Wazuh 4.x default API user (use 'wazuh' for older installs)
         "password_env": "WAZUH_PASSWORD",
         "ssl_verify": True,
     },

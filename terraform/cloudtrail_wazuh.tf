@@ -3,12 +3,15 @@ data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  cloudtrail_name        = "${var.project_name}-${var.environment}-management-events"
-  cloudtrail_bucket_name = substr(lower(replace("${var.project_name}-${var.environment}-cloudtrail-${data.aws_caller_identity.current.account_id}-${var.aws_region}", "_", "-")), 0, 63)
+  cloudtrail_resource_count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  cloudtrail_name           = "${var.project_name}-${var.environment}-management-events"
+  cloudtrail_bucket_name    = substr(lower(replace("${var.project_name}-${var.environment}-cloudtrail-${data.aws_caller_identity.current.account_id}-${var.aws_region}", "_", "-")), 0, 63)
+  cloudtrail_source_arn     = "arn:${data.aws_partition.current.partition}:cloudtrail:${var.aws_region}:${data.aws_caller_identity.current.account_id}:trail/${local.cloudtrail_name}"
+  cloudtrail_log_prefix     = "AWSLogs/${data.aws_caller_identity.current.account_id}/*"
 }
 
 resource "aws_s3_bucket" "cloudtrail_logs" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   bucket = local.cloudtrail_bucket_name
 
@@ -19,7 +22,7 @@ resource "aws_s3_bucket" "cloudtrail_logs" {
 }
 
 resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   bucket                  = aws_s3_bucket.cloudtrail_logs[0].id
   block_public_acls       = true
@@ -29,7 +32,7 @@ resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
 }
 
 resource "aws_s3_bucket_ownership_controls" "cloudtrail_logs" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   bucket = aws_s3_bucket.cloudtrail_logs[0].id
 
@@ -39,7 +42,7 @@ resource "aws_s3_bucket_ownership_controls" "cloudtrail_logs" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   bucket = aws_s3_bucket.cloudtrail_logs[0].id
 
@@ -51,7 +54,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs" 
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail_logs" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   bucket = aws_s3_bucket.cloudtrail_logs[0].id
 
@@ -70,7 +73,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail_logs" {
 }
 
 resource "aws_s3_bucket_policy" "cloudtrail_logs" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   bucket = aws_s3_bucket.cloudtrail_logs[0].id
   policy = data.aws_iam_policy_document.cloudtrail_bucket[0].json
@@ -82,7 +85,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
 }
 
 data "aws_iam_policy_document" "cloudtrail_bucket" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   statement {
     sid = "AWSCloudTrailAclCheck"
@@ -98,7 +101,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceArn"
-      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:${var.aws_region}:${data.aws_caller_identity.current.account_id}:trail/${local.cloudtrail_name}"]
+      values   = [local.cloudtrail_source_arn]
     }
   }
 
@@ -112,13 +115,13 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
 
     actions = ["s3:PutObject"]
     resources = [
-      "${aws_s3_bucket.cloudtrail_logs[0].arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+      "${aws_s3_bucket.cloudtrail_logs[0].arn}/${local.cloudtrail_log_prefix}"
     ]
 
     condition {
       test     = "StringEquals"
       variable = "aws:SourceArn"
-      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:${var.aws_region}:${data.aws_caller_identity.current.account_id}:trail/${local.cloudtrail_name}"]
+      values   = [local.cloudtrail_source_arn]
     }
 
     condition {
@@ -130,7 +133,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
 }
 
 resource "aws_cloudtrail" "management_events" {
-  count = var.enable_cloudtrail_wazuh_ingestion ? 1 : 0
+  count = local.cloudtrail_resource_count
 
   name                          = local.cloudtrail_name
   s3_bucket_name                = aws_s3_bucket.cloudtrail_logs[0].id

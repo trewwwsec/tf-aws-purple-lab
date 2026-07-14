@@ -65,7 +65,7 @@ test_credential_store_access() {
         getent shadow > "$WORKDIR/getent_shadow.txt" 2>&1 || true
         log_info "getent shadow attempted"
 
-        echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100070 (credential dump), Wazuh syscheck"
+        echo -e "  ${GREEN}Expected Alerts:${NC} Rule 200070 (credential dump), Wazuh syscheck"
 
     elif is_darwin; then
         print_section "🔓" "Keychain Credential Access (T1555.001 — APT29)"
@@ -86,7 +86,7 @@ test_credential_store_access() {
             echo -e "    No matching entry (expected)"
         log_info "Keychain access complete"
 
-        echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100220/100221 (Keychain access)"
+        echo -e "  ${GREEN}Expected Alerts:${NC} Rule 200220/200221 (Keychain access)"
     fi
     echo ""
 }
@@ -123,7 +123,7 @@ test_ssh_key_theft() {
     cp ~/.ssh/id_* "$WORKDIR/" 2>/dev/null || echo -e "    No keys in current user's .ssh/"
     log_info "Key staging attempted"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100224 (SSH key access), FIM alerts"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 200224 (SSH key access), FIM alerts"
     echo ""
 }
 
@@ -161,7 +161,7 @@ test_history_mining() {
     done
     log_info "History mining complete"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100052 (history access), file access events"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 200052 (history access), file access events"
     echo ""
 }
 
@@ -273,7 +273,7 @@ test_browser_credentials() {
     done
     log_info "Browser credential access attempted"
 
-    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 100222/100223 (browser credential access)"
+    echo -e "  ${GREEN}Expected Alerts:${NC} Rule 200222/200223 (browser credential access)"
     echo ""
 }
 
@@ -348,7 +348,7 @@ generate_report() {
 | 7 | Process memory scan | T1003.007 | ✅ |
 
 ## Verification
-Check Wazuh dashboard for Rules: 100070, 100224, 100052, 100222, 100223, FIM events
+Check Wazuh dashboard for Rules: 200070, 200224, 200052, 200222, 200223, FIM events
 EOF
     echo -e "${GREEN}✓${NC} Report: $report_file"
 }

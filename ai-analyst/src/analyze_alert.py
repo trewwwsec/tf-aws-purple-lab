@@ -477,6 +477,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="AI-Powered Alert Analyzer for Wazuh SIEM")
     parser.add_argument("--alert-id", "-a", help="Analyze a specific alert by ID")
     parser.add_argument("--alert-file", "-f", help="Analyze alert from JSON file")
+    parser.add_argument("--stdin", action="store_true", help="Read alert JSON from stdin (for Wazuh active-response hook integration)")
     parser.add_argument("--recent", "-r", type=int, help="Analyze N most recent alerts")
     parser.add_argument(
         "--monitor", "-m", action="store_true", help="Monitor and analyze alerts in real-time"
@@ -569,6 +570,17 @@ def main():
         if args.alert_file:
             with open(args.alert_file, "r", encoding="utf-8") as f:
                 alert = normalize_alert_payload(json.load(f))
+            analysis = analyzer.analyze(
+                alert, include_historical=False, source_path="hook"
+            )
+            if args.report is not None:
+                _render_report([analysis], args.report)
+            else:
+                render_output(analysis, args.output)
+            return
+
+        if args.stdin:
+            alert = normalize_alert_payload(json.load(sys.stdin))
             analysis = analyzer.analyze(
                 alert, include_historical=False, source_path="hook"
             )
