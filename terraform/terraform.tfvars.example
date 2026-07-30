@@ -1,5 +1,5 @@
 # =============================================================================
-# Cloud SOC Platform - Terraform Configuration
+# Purple Lab - Terraform Configuration
 # =============================================================================
 #
 # Copy this file to terraform.tfvars and update with your settings:
@@ -18,7 +18,7 @@ aws_region = "us-east-1"
 environment = "lab"
 
 # Project name prefix for resources
-project_name = "cloud-soc"
+project_name = "purple-lab"
 
 # -----------------------------------------------------------------------------
 # Network Configuration
@@ -41,10 +41,10 @@ private_subnet_cidr = "10.0.2.0/24"
 allowed_ssh_cidr = ["YOUR.PUBLIC.IP.HERE/32"]
 
 # AWS Key Pair name (must exist in AWS)
-ssh_key_name = "cloud-soc-key"
+ssh_key_name = "purple-lab-key"
 
 # Local path to SSH private key (for rule deployment provisioner)
-ssh_private_key_path = "~/.ssh/cloud-soc-key.pem"
+ssh_private_key_path = "~/.ssh/purple-lab-key.pem"
 
 # -----------------------------------------------------------------------------
 # Instance Configuration

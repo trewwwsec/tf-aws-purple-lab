@@ -13,7 +13,7 @@ variable "environment" {
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "cloud-native-soc-platform"
+  default     = "purple-lab"
 }
 
 variable "vpc_cidr" {
@@ -55,13 +55,13 @@ variable "endpoint_instance_type" {
 variable "ssh_key_name" {
   description = "SSH key pair name"
   type        = string
-  default     = "cloud-soc-key"
+  default     = "purple-lab-key"
 }
 
 variable "ssh_private_key_path" {
   description = "Path to SSH private key for provisioner connections"
   type        = string
-  default     = "~/.ssh/cloud-soc-key.pem"
+  default     = "~/.ssh/purple-lab-key.pem"
 }
 
 variable "enable_macos_endpoint" {
