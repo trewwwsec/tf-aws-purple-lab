@@ -49,6 +49,7 @@ terraform.rc
 !CONTRIBUTING.md
 !SECURITY.md
 !CODE_OF_CONDUCT.md
+!CLAUDE.md
 
 # deployment data
 deployments-outputs*
