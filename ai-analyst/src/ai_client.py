@@ -166,11 +166,15 @@ class OllamaClient(BaseLLMClient):
         self,
         model: str = "llama2",
         host: str = "http://localhost:11434",
+        temperature: float = 0.3,
+        max_tokens: int = 2000,
         strict_mode: bool = False,
     ):
         super().__init__(strict_mode=strict_mode)
         self.model = model
         self.host = host
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
     def generate(self, prompt: str, system_prompt: str = None) -> str:
         try:
@@ -182,7 +186,15 @@ class OllamaClient(BaseLLMClient):
 
             response = requests.post(
                 f"{self.host}/api/generate",
-                json={"model": self.model, "prompt": full_prompt, "stream": False},
+                json={
+                    "model": self.model,
+                    "prompt": full_prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": self.temperature,
+                        "num_predict": self.max_tokens,
+                    },
+                },
                 timeout=30,
             )
             response.raise_for_status()
@@ -292,6 +304,8 @@ class AIClient:
             return OllamaClient(
                 model=ai_cfg.get("ollama_model", "llama2"),
                 host=ai_cfg.get("ollama_host", "http://localhost:11434"),
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
                 strict_mode=self.strict_mode,
             )
         return MockLLMClient(strict_mode=self.strict_mode)

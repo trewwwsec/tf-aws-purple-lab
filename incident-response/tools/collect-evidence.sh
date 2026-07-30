@@ -3,6 +3,10 @@
 # Evidence Collection Tool
 # Collects forensic evidence from a system during incident response
 #
+# This script always collects from the LOCAL machine it runs on. Run it
+# directly on the target host (e.g. after SSHing in) rather than pointing
+# it at a remote host — <hostname> is only used as a label in the output.
+#
 # Usage: ./collect-evidence.sh <hostname> <incident-id>
 #
 
@@ -19,6 +23,8 @@ NC='\033[0m'
 if [ $# -lt 2 ]; then
     echo "Usage: $0 <hostname> <incident-id>"
     echo "Example: $0 web-server-01 INC-20260128-001"
+    echo ""
+    echo "Run this script directly on the target host; <hostname> is a label only."
     exit 1
 fi
 
@@ -187,12 +193,22 @@ echo -e "${BLUE}[9/10]${NC} Collecting Bash Histories..."
 } > bash-histories.txt
 log_evidence "EVD-009" "Bash command histories"
 
-echo -e "${BLUE}[10/10]${NC} Collecting Open Files..."
+echo -e "${BLUE}[10/11]${NC} Collecting Open Files..."
 {
     echo "=== OPEN FILES ==="
     sudo lsof 2>/dev/null | head -500
 } > open-files.txt
 log_evidence "EVD-010" "Open files (lsof)"
+
+echo -e "${BLUE}[11/11]${NC} Collecting Wazuh Alerts..."
+if [ -d /var/ossec/logs/alerts ]; then
+    mkdir -p wazuh-alerts
+    sudo cp /var/ossec/logs/alerts/alerts.log wazuh-alerts/ 2>/dev/null || true
+    sudo cp /var/ossec/logs/alerts/alerts.json wazuh-alerts/ 2>/dev/null || true
+    log_evidence "EVD-011" "Wazuh alerts (alerts.log, alerts.json)"
+else
+    echo "  Wazuh alerts directory not found on this host, skipping"
+fi
 
 # Create evidence manifest
 echo -e "\n${BLUE}Creating evidence manifest...${NC}"
@@ -211,7 +227,7 @@ echo -e "\n${BLUE}Creating evidence manifest...${NC}"
 # Calculate checksums
 echo -e "${BLUE}Calculating checksums...${NC}"
 sha256sum * > checksums.sha256
-log_evidence "EVD-011" "SHA256 checksums of all evidence"
+log_evidence "EVD-012" "SHA256 checksums of all evidence"
 
 # Package evidence
 echo -e "\n${BLUE}Packaging evidence...${NC}"

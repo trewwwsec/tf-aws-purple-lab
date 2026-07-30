@@ -9,7 +9,15 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-DOC_GLOBS = ["README.md", "docs/**/*.md", "ai-analyst/README.md"]
+DOC_GLOBS = [
+    "README.md",
+    "docs/**/*.md",
+    "ai-analyst/README.md",
+    "ai-analyst/RAG.md",
+    "incident-response/**/*.md",
+    "detections/**/*.md",
+    "attack-simulation/**/*.md",
+]
 
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 

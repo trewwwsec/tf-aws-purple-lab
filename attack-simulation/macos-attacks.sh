@@ -19,16 +19,15 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-NC='\033[0m' # No Color
-
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Shared colors, logging, and safety-check helpers
+source "$SCRIPT_DIR/common.sh"
+
+# macOS-specific accent color not defined in common.sh
+PURPLE='\033[0;35m'
+
 LOG_DIR="${SCRIPT_DIR}/logs"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="${LOG_DIR}/macos_attack_simulation_${TIMESTAMP}.log"
@@ -67,30 +66,44 @@ print_expected() {
     echo -e "    ${YELLOW}Expected Alert:${NC} $1"
 }
 
-# Safety checks
+# Safety checks (macOS-specific: also verifies the host OS before prompting).
+# Usage: safety_check [--force]
 safety_check() {
+    local force_mode=false
+    for arg in "$@"; do
+        case "$arg" in
+            --force|-y|-f)
+                force_mode=true
+                ;;
+        esac
+    done
+
     print_section "SAFETY CHECKS"
-    
+
     # Check if running on macOS
     if [[ "$(uname)" != "Darwin" ]]; then
         echo -e "${RED}ERROR: This script must be run on macOS${NC}"
         exit 1
     fi
-    
+
     echo -e "${GREEN}✓${NC} Running on macOS $(sw_vers -productVersion)"
-    
-    # Check if authorized
+
     echo ""
     echo -e "${YELLOW}⚠️  WARNING: This script simulates attack techniques${NC}"
     echo -e "${YELLOW}    Only run on systems you own or have authorization to test${NC}"
     echo ""
-    read -p "Do you have authorization to run these tests? (yes/no): " auth
-    
-    if [[ "$auth" != "yes" ]]; then
-        echo -e "${RED}Aborting. Authorization required.${NC}"
-        exit 1
+
+    if [ "$force_mode" = true ]; then
+        log_warn "Force mode enabled - skipping authorization prompt"
+    else
+        read -p "Do you have authorization to run these tests? (yes/no): " auth
+
+        if [[ "$auth" != "yes" ]]; then
+            echo -e "${RED}Aborting. Authorization required.${NC}"
+            exit 1
+        fi
     fi
-    
+
     log "Authorization confirmed. Starting tests."
 }
 
@@ -408,9 +421,9 @@ EOF
 
 main() {
     print_banner
-    
-    safety_check
-    
+
+    safety_check "$@"
+
     echo ""
     echo "Starting macOS attack simulations..."
     echo "Log file: ${LOG_FILE}"
