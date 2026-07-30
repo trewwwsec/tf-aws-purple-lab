@@ -1,8 +1,8 @@
 # High-Level Architecture
 
-## Cloud SOC Platform - System Overview
+## Purple Lab - System Overview
 
-This diagram shows the complete Cloud SOC Platform architecture including infrastructure, detection, and incident response components.
+This diagram shows the complete Purple Lab architecture including infrastructure, detection, and incident response components.
 
 ```mermaid
 graph TB

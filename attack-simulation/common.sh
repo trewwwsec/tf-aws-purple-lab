@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Common Utilities for Attack Simulation Scripts
-# Cloud SOC Platform
+# Purple Lab
 # =============================================================================
 #
 # This library provides shared functions for all attack simulation scripts.

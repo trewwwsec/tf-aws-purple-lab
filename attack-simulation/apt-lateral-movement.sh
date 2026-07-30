@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # APT Lateral Movement & Discovery Simulation
-# Cloud SOC Platform - Purple Team Testing
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE: Simulate lateral movement and discovery techniques used by APT29,

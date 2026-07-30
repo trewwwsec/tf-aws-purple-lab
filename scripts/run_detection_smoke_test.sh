@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Run Detection Smoke Test
-# Cloud SOC Platform
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE:
@@ -108,7 +108,7 @@ discover_ssh_key() {
     fi
 
     if [ -z "$detected" ]; then
-        for candidate in "$HOME/.ssh/cloud-soc-key.pem" "$HOME/.ssh/cloud-soc-key"; do
+        for candidate in "$HOME/.ssh/purple-lab-key.pem" "$HOME/.ssh/purple-lab-key"; do
             if [ -f "$candidate" ]; then
                 detected="$candidate"
                 break

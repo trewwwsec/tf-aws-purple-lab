@@ -1,6 +1,6 @@
-# Cloud SOC Platform - Architecture Diagrams
+# Purple Lab - Architecture Diagrams
 
-This directory contains architecture diagrams for the Cloud SOC Platform. All diagrams are created using Mermaid syntax, which renders automatically in GitHub, GitLab, and many documentation tools.
+This directory contains architecture diagrams for the Purple Lab. All diagrams are created using Mermaid syntax, which renders automatically in GitHub, GitLab, and many documentation tools.
 
 ## 📊 Available Diagrams
 
@@ -65,4 +65,4 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax:
 ---
 
 **Last Updated**: 2026-02-15  
-**Maintainer**: Cloud SOC Platform Team
+**Maintainer**: Purple Lab Team

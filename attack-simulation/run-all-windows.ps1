@@ -1,6 +1,6 @@
 # =============================================================================
 # Run All Windows Attack Simulations
-# Windows Attack Orchestrator for Cloud SOC Platform
+# Windows Attack Orchestrator for Purple Lab
 # =============================================================================
 #
 # PURPOSE: Orchestrate all Windows-based attack simulations to validate
@@ -53,7 +53,7 @@ $StartTime = Get-Date
 function Write-Banner {
     Write-Host "╔══════════════════════════════════════════════════════════════════╗" -ForegroundColor $BLUE
     Write-Host "║        WINDOWS ATTACK SIMULATION ORCHESTRATOR                    ║" -ForegroundColor $BLUE
-    Write-Host "║        Cloud SOC Platform — Purple Team Testing                 ║" -ForegroundColor $BLUE
+    Write-Host "║        Purple Lab — Purple Team Testing                 ║" -ForegroundColor $BLUE
     Write-Host "╚══════════════════════════════════════════════════════════════════╝" -ForegroundColor $BLUE
 }
 

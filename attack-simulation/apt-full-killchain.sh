@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # APT29 Multi-Victim Kill Chain Orchestrator
-# Cloud SOC Platform - Purple Team Testing
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE: Orchestrate a complete APT29 (Cozy Bear) intrusion across multiple

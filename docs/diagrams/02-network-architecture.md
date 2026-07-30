@@ -12,7 +12,7 @@ graph TB
     end
     
     subgraph "AWS Region: us-east-1"
-        subgraph "VPC: cloud-soc-vpc (10.0.0.0/16)"
+        subgraph "VPC: purple-lab-vpc (10.0.0.0/16)"
             IGW[Internet Gateway<br/>igw-xxxxx]
             
             subgraph "Availability Zone: us-east-1a"

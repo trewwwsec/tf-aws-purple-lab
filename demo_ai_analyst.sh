@@ -23,7 +23,7 @@ echo ""
 # Configuration
 WAZUH_IP="44.202.190.198"
 LINUX_IP="10.0.2.105"
-SSH_KEY="$HOME/.ssh/cloud-soc-key.pem"
+SSH_KEY="$HOME/.ssh/purple-lab-key.pem"
 
 echo -e "${YELLOW}Step 1: Check Wazuh Status${NC}"
 echo "=========================================="

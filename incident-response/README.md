@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-This directory contains **production-ready incident response playbooks** for the Cloud SOC Platform. Each playbook provides step-by-step procedures for responding to specific security incidents detected by our SIEM.
+This directory contains **production-ready incident response playbooks** for the Purple Lab. Each playbook provides step-by-step procedures for responding to specific security incidents detected by our SIEM.
 
 ## 🎯 Purpose
 

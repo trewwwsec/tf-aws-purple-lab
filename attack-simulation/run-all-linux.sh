@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 # Print header
-print_header "Cloud SOC - Attack Simulation Suite"
+print_header "Purple Lab - Attack Simulation Suite"
 
 # Safety check
 safety_check "ALL attack simulations (multiple security alerts)" $@

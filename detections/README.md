@@ -2,7 +2,7 @@
 
 ## Overview
 
-Production-ready detection rules for the Cloud SOC Platform, mapped to the MITRE ATT&CK framework. Rules are deployed to Wazuh SIEM and validated through attack simulation.
+Production-ready detection rules for the Purple Lab, mapped to the MITRE ATT&CK framework. Rules are deployed to Wazuh SIEM and validated through attack simulation.
 
 ## Detection Coverage
 
@@ -62,7 +62,7 @@ wazuh/custom_rules/
 
 ```bash
 # SSH to Wazuh server
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@WAZUH_SERVER_IP
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@WAZUH_SERVER_IP
 
 # Backup existing rules
 sudo cp /var/ossec/etc/rules/local_rules.xml \

@@ -84,14 +84,14 @@ The orchestrator (`apt-full-killchain.sh`) deploys attack scripts via SCP and ex
 cd terraform && terraform apply
 
 # 2. Wait for Wazuh to install (~10 min)
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@<WAZUH_IP> "cloud-init status"
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@<WAZUH_IP> "cloud-init status"
 
 # 3. Deploy custom detection rules
-scp -i ~/.ssh/cloud-soc-key.pem \
+scp -i ~/.ssh/purple-lab-key.pem \
     wazuh/custom_rules/local_rules.xml \
     wazuh/custom_rules/macos_rules.xml \
     ubuntu@<WAZUH_IP>:/tmp/
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@<WAZUH_IP> "
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@<WAZUH_IP> "
     sudo cp /tmp/local_rules.xml /var/ossec/etc/rules/local_rules.xml
     sudo cp /tmp/macos_rules.xml /var/ossec/etc/rules/macos_rules.xml
     sudo chown wazuh:wazuh /var/ossec/etc/rules/*.xml
@@ -99,13 +99,13 @@ ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@<WAZUH_IP> "
 "
 
 # 4. Upload and run attack simulations
-scp -i ~/.ssh/cloud-soc-key.pem \
+scp -i ~/.ssh/purple-lab-key.pem \
     attack-simulation/common.sh \
     attack-simulation/apt-credential-harvest.sh \
     attack-simulation/apt-lateral-movement.sh \
     attack-simulation/privilege-escalation.sh \
     ubuntu@<WAZUH_IP>:/tmp/attack-sim/
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@<WAZUH_IP> "
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@<WAZUH_IP> "
     chmod +x /tmp/attack-sim/*.sh
     cd /tmp/attack-sim
     echo yes | bash apt-credential-harvest.sh

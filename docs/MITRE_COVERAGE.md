@@ -17,7 +17,7 @@
 
 ## Rule Sources
 
-### 1. Custom Cloud SOC Rules (82 rules)
+### 1. Custom Purple Lab Rules (82 rules)
 Our custom-built detection rules specifically designed for this platform:
 - 50 Linux/Windows rules (local_rules.xml)
 - 32 macOS rules (macos_rules.xml)

@@ -1,4 +1,4 @@
-# 🛡️ Cloud SOC Platform
+# 🟣 Purple Lab
 
 [![AWS](https://img.shields.io/badge/AWS-Cloud-orange?style=for-the-badge&logo=amazon-aws)](https://aws.amazon.com/)
 [![Terraform](https://img.shields.io/badge/Terraform-IaC-purple?style=for-the-badge&logo=terraform)](https://www.terraform.io/)
@@ -9,9 +9,9 @@
 [![macOS](https://img.shields.io/badge/macOS-Supported-lightgrey?style=for-the-badge&logo=apple)](detections/04-macos-attacks.md)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-A Terraform-built AWS security lab that deploys Wazuh SIEM, Linux and Windows endpoints, custom detection rules, attack simulations, incident-response playbooks, and an AI analyst workflow for alert triage and anomaly detection.
+A Terraform-built AWS purple-team lab that pairs Wazuh SIEM and MITRE-mapped detections with offensive attack simulations, incident-response playbooks, and an AI analyst — so you can attack, detect, and respond in one reproducible environment.
 
-This repository is designed as a portfolio-grade SOC engineering project: it shows cloud infrastructure, detection engineering, purple-team validation, response documentation, and AI-assisted analysis working together in one reproducible lab.
+This repository is designed as a portfolio-grade purple-team engineering project: it shows cloud infrastructure, detection engineering, offensive simulation, response documentation, and AI-assisted analysis working together in one reproducible lab.
 
 ---
 
@@ -94,8 +94,8 @@ Detailed diagrams live in [`docs/diagrams/`](docs/diagrams/).
 ### 1. Configure Terraform
 
 ```bash
-git clone https://github.com/trewwwsec/tf-aws-soc.git
-cd tf-aws-soc/terraform
+git clone https://github.com/trewwwsec/tf-aws-purple-lab.git
+cd tf-aws-purple-lab/terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
@@ -104,11 +104,11 @@ Edit `terraform.tfvars`:
 ```hcl
 aws_region = "us-east-1"
 environment = "lab"
-project_name = "cloud-soc"
+project_name = "purple-lab"
 
 allowed_ssh_cidr = ["YOUR.PUBLIC.IP.HERE/32"]
-ssh_key_name = "cloud-soc-key"
-ssh_private_key_path = "~/.ssh/cloud-soc-key.pem"
+ssh_key_name = "purple-lab-key"
+ssh_private_key_path = "~/.ssh/purple-lab-key.pem"
 
 wazuh_instance_type = "t3.medium"
 endpoint_instance_type = "t3.micro"
@@ -315,7 +315,7 @@ See [`incident-response/README.md`](incident-response/README.md) and [`incident-
 ## Project Structure
 
 ```text
-tf-aws-soc/
+tf-aws-purple-lab/
 ├── terraform/                  # AWS infrastructure as code
 │   ├── provider.tf             # Terraform and AWS provider configuration
 │   ├── vpc.tf                  # VPC, subnets, route tables, NAT Gateway
@@ -428,4 +428,4 @@ This project is licensed under the MIT License. See [`LICENSE`](LICENSE).
 
 ---
 
-<p align="center"><strong>Built for hands-on cloud SOC engineering, detection validation, and AI-assisted security operations.</strong></p>
+<p align="center"><strong>Built for hands-on purple-team engineering, detection validation, and AI-assisted security operations.</strong></p>

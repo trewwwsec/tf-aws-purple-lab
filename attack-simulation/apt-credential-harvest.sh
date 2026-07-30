@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # APT Credential Harvesting Simulation
-# Cloud SOC Platform - Purple Team Testing
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE: Simulate credential theft techniques used by APT29, APT28,

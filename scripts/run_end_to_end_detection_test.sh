@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Run End-to-End Detection Test
-# Cloud SOC Platform
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE:
@@ -102,7 +102,7 @@ discover_ssh_key() {
     fi
 
     if [ -z "$detected" ]; then
-        for candidate in "$HOME/.ssh/cloud-soc-key.pem" "$HOME/.ssh/cloud-soc-key"; do
+        for candidate in "$HOME/.ssh/purple-lab-key.pem" "$HOME/.ssh/purple-lab-key"; do
             if [ -f "$candidate" ]; then
                 detected="$candidate"
                 break
@@ -231,7 +231,7 @@ fi
 [ -f "$SSH_KEY" ] || fail "SSH private key not found at $SSH_KEY."
 
 REMOTE_USER_HOST="ubuntu@$LINUX_IP"
-REMOTE_BASE="/tmp/tf-aws-soc-e2e-${SIMULATION}-$$"
+REMOTE_BASE="/tmp/tf-aws-purple-lab-e2e-${SIMULATION}-$$"
 REMOTE_CLEANUP_NEEDED=false
 
 cleanup_remote() {

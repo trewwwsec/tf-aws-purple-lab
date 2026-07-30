@@ -1,6 +1,6 @@
 # Documentation
 
-Project documentation for the Cloud SOC Platform.
+Project documentation for the Purple Lab.
 
 ## Contents
 

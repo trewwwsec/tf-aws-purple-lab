@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # macOS Endpoint Bootstrap Script
-# Cloud SOC Platform - Wazuh Agent Installation
+# Purple Lab - Wazuh Agent Installation
 # =============================================================================
 #
 # This script runs on macOS EC2 instance boot via user_data

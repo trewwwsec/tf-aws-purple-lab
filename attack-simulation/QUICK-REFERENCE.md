@@ -6,11 +6,11 @@
 
 ```bash
 # SSH to Linux endpoint
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@LINUX_ENDPOINT_IP
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@LINUX_ENDPOINT_IP
 
 # Clone repository
-git clone https://github.com/trewwwsec/tf-aws-soc.git
-cd tf-aws-soc/attack-simulation
+git clone https://github.com/trewwwsec/tf-aws-purple-lab.git
+cd tf-aws-purple-lab/attack-simulation
 
 # Run individual simulation
 ./privilege-escalation.sh
@@ -130,7 +130,7 @@ export WAZUH_SERVER="ubuntu@10.0.1.100"
 ### Scripts not found
 ```bash
 # Ensure you're in the attack-simulation directory
-cd /path/to/tf-aws-soc/attack-simulation
+cd /path/to/tf-aws-purple-lab/attack-simulation
 ls -la *.sh
 ```
 

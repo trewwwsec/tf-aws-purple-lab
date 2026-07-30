@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Local macOS Wazuh Agent Setup Script
-# Cloud SOC Platform
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE: Install and configure Wazuh agent on your local Mac
@@ -38,7 +38,7 @@ print_banner() {
     echo -e "${BLUE}"
     echo "╔══════════════════════════════════════════════════════════════════╗"
     echo "║           LOCAL macOS WAZUH AGENT SETUP                          ║"
-    echo "║           Cloud SOC Platform                                     ║"
+    echo "║           Purple Lab                                     ║"
     echo "╚══════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }

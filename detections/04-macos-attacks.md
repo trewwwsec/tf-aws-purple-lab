@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document covers the macOS-specific detection rules for the Cloud SOC Platform. These rules complement the general `local_rules.xml` and are specifically designed to detect attack techniques targeting Apple macOS systems.
+This document covers the macOS-specific detection rules for the Purple Lab. These rules complement the general `local_rules.xml` and are specifically designed to detect attack techniques targeting Apple macOS systems.
 
 ## 🍎 MITRE ATT&CK Coverage (macOS)
 

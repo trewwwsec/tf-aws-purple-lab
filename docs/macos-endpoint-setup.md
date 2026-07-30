@@ -1,6 +1,6 @@
 # macOS Endpoint Setup
 
-This guide covers how to add macOS endpoints to your Cloud SOC Platform for monitoring.
+This guide covers how to add macOS endpoints to your Purple Lab for monitoring.
 
 ## 📋 Options
 

@@ -99,7 +99,7 @@ grep -oP '\d+\.\d+\.\d+\.\d+' wazuh-alerts.log | sort | uniq > source-ips.txt
 #### On Affected System
 ```bash
 # SSH to affected system
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@AFFECTED_SYSTEM_IP
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@AFFECTED_SYSTEM_IP
 
 # Collect authentication logs
 sudo grep "sshd" /var/log/auth.log > /tmp/ssh-auth.log

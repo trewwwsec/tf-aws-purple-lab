@@ -2,7 +2,7 @@
 """
 AI Anomaly Detector - CLI Entry Point
 
-Proactive behavioral anomaly detection for the Cloud SOC Platform.
+Proactive behavioral anomaly detection for the Purple Lab.
 Analyzes Wazuh events against behavioral baselines to detect threats
 that signature-based rules miss.
 
@@ -49,7 +49,7 @@ def print_banner():
     print(f"{Colors.CYAN}╔══════════════════════════════════════════════════════════════════╗{Colors.END}")
     print(f"{Colors.CYAN}║{Colors.END}  {Colors.BOLD}🧠 AI Anomaly Detection Agent{Colors.END}                                  {Colors.CYAN}║{Colors.END}")
     print(f"{Colors.CYAN}║{Colors.END}  {Colors.DIM}Behavioral & Heuristic Threat Detection{Colors.END}                        {Colors.CYAN}║{Colors.END}")
-    print(f"{Colors.CYAN}║{Colors.END}  {Colors.DIM}Cloud SOC Platform{Colors.END}                                              {Colors.CYAN}║{Colors.END}")
+    print(f"{Colors.CYAN}║{Colors.END}  {Colors.DIM}Purple Lab{Colors.END}                                              {Colors.CYAN}║{Colors.END}")
     print(f"{Colors.CYAN}╚══════════════════════════════════════════════════════════════════╝{Colors.END}")
     print()
 

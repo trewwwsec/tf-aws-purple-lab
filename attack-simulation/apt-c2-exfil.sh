@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # APT Command & Control and Data Exfiltration Simulation
-# Cloud SOC Platform - Purple Team Testing
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE: Simulate C2 communication and exfil techniques used by APT29,

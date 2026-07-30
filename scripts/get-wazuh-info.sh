@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Get Wazuh Admin Credentials
-# Cloud SOC Platform
+# Purple Lab
 # =============================================================================
 #
 # PURPOSE: Retrieve the Wazuh dashboard admin credentials from the deployed
@@ -54,7 +54,7 @@ print_banner() {
     echo ""
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${NC}  ${BOLD}🔐 Wazuh Admin Credentials${NC}                                     ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}  ${DIM}Cloud SOC Platform${NC}                                              ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  ${DIM}Purple Lab${NC}                                              ${CYAN}║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -152,7 +152,7 @@ if [ -z "$SSH_KEY" ]; then
 
     if [ -z "$SSH_KEY" ]; then
         # Fallback: try common key names
-        for key_path in ~/.ssh/cloud-soc-key.pem ~/.ssh/cloud-soc-key; do
+        for key_path in ~/.ssh/purple-lab-key.pem ~/.ssh/purple-lab-key; do
             if [ -f "$key_path" ]; then
                 SSH_KEY="$key_path"
                 break

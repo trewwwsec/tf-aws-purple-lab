@@ -2,7 +2,7 @@
 
 ## Overview
 
-Safe, controlled attack simulation scripts for validating the Cloud SOC Platform's 2,226+ detection rules. Includes individual technique scripts, cross-platform macOS tests, and a full APT29 kill chain orchestrator.
+Safe, controlled attack simulation scripts for validating the Purple Lab's 2,226+ detection rules. Includes individual technique scripts, cross-platform macOS tests, and a full APT29 kill chain orchestrator.
 
 ⚠️ **WARNING**: These scripts simulate real attack techniques. **ONLY** run them in your isolated lab environment. **NEVER** run on production systems or systems you don't own.
 
@@ -35,11 +35,11 @@ Safe, controlled attack simulation scripts for validating the Cloud SOC Platform
 #### Linux Endpoint
 ```bash
 # SSH to Linux endpoint
-ssh -i ~/.ssh/cloud-soc-key.pem ubuntu@LINUX_ENDPOINT_IP
+ssh -i ~/.ssh/purple-lab-key.pem ubuntu@LINUX_ENDPOINT_IP
 
 # Clone this repository
-git clone https://github.com/trewwwsec/tf-aws-soc.git
-cd tf-aws-soc/attack-simulation
+git clone https://github.com/trewwwsec/tf-aws-purple-lab.git
+cd tf-aws-purple-lab/attack-simulation
 
 # Run individual simulation
 ./ssh-brute-force.sh
