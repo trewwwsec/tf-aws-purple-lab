@@ -16,7 +16,7 @@ source "$SCRIPT_DIR/common.sh"
 print_header "Cloud SOC - Attack Simulation Suite"
 
 # Safety check
-safety_check "ALL attack simulations (multiple security alerts)"
+safety_check "ALL attack simulations (multiple security alerts)" $@
 
 # Create results directory
 RESULTS_DIR="$SCRIPT_DIR/results/$(date +%Y%m%d_%H%M%S)"

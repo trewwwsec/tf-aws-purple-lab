@@ -64,6 +64,22 @@ require_command() {
     fi
 }
 
+verify_aws_cli_configured() {
+    require_command aws
+
+    local identity
+    identity=$(aws sts get-caller-identity) || {
+        fail "AWS CLI is not configured or credentials are invalid. Run 'aws configure' or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY environment variables."
+    }
+
+    local account_id
+    account_id=$(echo "$identity" | grep -o '"Account"[[:space:]]*:[[:space:]]*"[0-9]*"' | grep -o '[0-9]*') || true
+    local arn
+    arn=$(echo "$identity" | grep -o '"Arn"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\(.*\)"/\1/') || true
+
+    echo "AWS identity verified: account=${account_id:-unknown}, arn=${arn:-unknown}"
+}
+
 discover_tf_output() {
     local output_name="$1"
     require_command terraform
@@ -195,6 +211,8 @@ esac
 require_command bash
 require_command ssh
 require_command scp
+
+verify_aws_cli_configured
 
 if [ -z "$WAZUH_IP" ]; then
     WAZUH_IP="$(discover_tf_output wazuh_server_public_ip)"

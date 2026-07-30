@@ -21,7 +21,7 @@ echo ""
 # Safety check
 echo -e "${YELLOW}This script requires sudo privileges.${NC}"
 echo ""
-safety_check "privilege escalation attacks"
+safety_check "privilege escalation attacks" $@
 
 echo ""
 log_info "Starting privilege escalation simulation..."

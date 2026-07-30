@@ -28,7 +28,7 @@ echo ""
 echo "Target: $TARGET_USER@$TARGET_HOST"
 echo "Attempts: $ATTEMPTS"
 echo ""
-safety_check "a brute force attack"
+safety_check "a brute force attack" $@
 
 echo ""
 log_info "Starting SSH brute force simulation..."
