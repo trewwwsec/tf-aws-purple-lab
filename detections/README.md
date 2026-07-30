@@ -10,8 +10,8 @@ Production-ready detection rules for the Purple Lab, mapped to the MITRE ATT&CK 
 
 | Source | Rules | ID Range | Description |
 |--------|-------|----------|-------------|
-| **Custom Rules** | 73 | 200000–200999 | Hand-crafted detections for targeted threats |
-| **SOCFortress Community** | 2,153 | Various | Community-maintained ruleset |
+| **Custom Rules** | 82 | 200000–200999 | Hand-crafted detections for targeted threats |
+| **SOCFortress Community** | 2,144 | Various | Community-maintained ruleset |
 | **Total** | **2,226+** | — | Comprehensive multi-platform coverage |
 
 ### Coverage by Category (Custom Rules)
@@ -20,7 +20,7 @@ Production-ready detection rules for the Purple Lab, mapped to the MITRE ATT&CK 
 |----------|-------|------------------|----------|
 | SSH Brute Force | 3 | T1110, T1078 | High–Critical |
 | PowerShell Abuse | 5 | T1059.001, T1027, T1105, T1003.001 | High–Critical |
-| Privilege Escalation | 5 | T1548.003, T1078.003 | Medium–Critical |
+| Privilege Escalation | 3 | T1548.003 | Medium–Critical |
 | Account Management | 4 | T1136.001, T1078.002 | High |
 | Persistence | 4 | T1053.003/005, T1543.002/003 | High |
 | Credential Access | 3 | T1003.001/002/008 | Critical |
@@ -31,7 +31,7 @@ Production-ready detection rules for the Purple Lab, mapped to the MITRE ATT&CK 
 | Exfiltration | 5 | T1041, T1048, T1132, T1567 | High |
 | Collection | 3 | T1005, T1552.004, T1555.003 | High |
 | Discovery | 5 | T1046, T1082, T1087, T1552.005 | Medium–High |
-| macOS Attacks | 7 | T1059.004, T1547.011, T1555.001 | Medium–Critical |
+| macOS Attacks | 32 | T1059.004, T1547.015, T1555.001 | Medium–Critical |
 
 ### MITRE ATT&CK Tactics: 11/14 Covered
 
@@ -52,9 +52,11 @@ detections/
 ├── 04-macos-attacks.md         # macOS-specific detections
 
 wazuh/custom_rules/
-├── local_rules.xml             # Custom rules (200xxx IDs) — deploy this
-└── socfortress/                # Community rules (2,153 rules)
+├── local_rules.xml             # Linux/Windows custom rules (200001-200124)
+└── macos_rules.xml             # macOS custom rules (200200-200272)
 ```
+
+SOCFortress community rules are not vendored in this repo — they're downloaded to the Wazuh server during Terraform provisioning (see `terraform/ec2.tf`).
 
 ## Deployment
 

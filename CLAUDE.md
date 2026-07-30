@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Terraform-built AWS security lab: Wazuh SIEM + Linux/Windows/macOS endpoints, 82 custom MITRE-mapped Wazuh detection rules, purple-team attack simulation scripts, NIST-style incident-response playbooks, and a standalone Python/FastAPI "AI Alert Analyst" service that enriches Wazuh alerts with LLM-generated triage. These five pieces (`terraform/`, `wazuh/`, `attack-simulation/`, `incident-response/`, `ai-analyst/`) are loosely coupled — each is best understood by MITRE technique / detection rule ID, not by import graph.
+A Terraform-built AWS security lab: Wazuh SIEM + Linux/Windows/macOS endpoints, 82 custom MITRE-mapped Wazuh detection rules, purple-team attack simulation scripts, NIST-style incident-response playbooks, and a standalone Python "AI Alert Analyst" service that enriches Wazuh alerts with LLM-generated triage. These five pieces (`terraform/`, `wazuh/`, `attack-simulation/`, `incident-response/`, `ai-analyst/`) are loosely coupled — each is best understood by MITRE technique / detection rule ID, not by import graph.
 
 ## Commands
 
@@ -24,7 +24,7 @@ CI (`terraform-ci.yml`) runs `fmt -check`, `init -backend=false`, and `validate`
 
 ### AI Analyst (`ai-analyst/`)
 
-Tests must run with **stdlib `unittest`**, not bare `pytest` — CI invokes `python3 -m unittest discover -s ai-analyst/tests -q` and cannot import pytest-only APIs (`pytest.raises`, `@pytest.fixture`, bare `assert`). If a test file uses pytest idioms, either it hasn't been reconciled with CI yet or it's being run via `pytest` locally — see the fix in commit `78888f8` for the conversion pattern (`pytest.raises` → `self.assertRaisesRegex`, `@pytest.fixture` → `setUp()`, `assert` → `self.assertEqual`/`assertTrue`/etc).
+Tests must run with **stdlib `unittest`**, not bare `pytest` — CI invokes `python3 -m unittest discover -s ai-analyst/tests -q` and cannot import pytest-only APIs (`pytest.raises`, `@pytest.fixture`, bare `assert`). If a test file uses pytest idioms, either it hasn't been reconciled with CI yet or it's being run via `pytest` locally — see the fix in commit `2ff27ca` for the conversion pattern (`pytest.raises` → `self.assertRaisesRegex`, `@pytest.fixture` → `setUp()`, `assert` → `self.assertEqual`/`assertTrue`/etc).
 
 ```bash
 # From repo root (pytest.ini disables the globally-injected pytest-rerunfailures plugin)
@@ -48,7 +48,7 @@ CLI entry points (all runnable in `--demo`/mock mode without live AWS/Wazuh):
 cd ai-analyst
 python src/analyze_alert.py --demo --mode demo
 python src/detect_anomalies.py --demo
-uvicorn src.api_server:app --host 0.0.0.0 --port 8000
+python src/api_server.py --host 0.0.0.0 --port 8000
 python src/benchmark_rag.py --iterations 10 --output json
 python src/prune_embedding_cache.py --max-files 20000 --max-size-mb 1024 --max-age-days 30
 ```
@@ -78,7 +78,7 @@ Shared infrastructure:
 - `ai_client.py` — provider abstraction: `BaseLLMClient` → `OpenAIClient` / `AnthropicClient` / `OllamaClient` / `MockLLMClient`, selected by `ai.provider` in `config/settings.yaml`.
 - `config_loader.py` — loads `config/settings.yaml`, deep-merges env-injected secrets (never plaintext in YAML — `evaluate_security_posture`/`enforce_security_posture` actively reject plaintext secrets found in config), and resolves `runtime.mode` (`strict` vs `demo`; demo mode allows mock fallbacks when no API key/Wazuh connection is available).
 - `rag_retriever.py` / `vector_store.py` / `embedding_service.py` / `playbook_chunker.py` — RAG pipeline that chunks `incident-response/playbooks/` and retrieves relevant sections via OpenSearch hybrid (vector + text) search; embeddings are disk-cached under `~/.cache/ai-analyst/embeddings` with pruning via `prune_embedding_cache.py`.
-- `api_server.py` — FastAPI app exposing `/analyze`, `/feedback`, `/health`; bearer-token auth (`AI_ANALYST_API_TOKEN`) is **on by default**.
+- `api_server.py` — stdlib `http.server` (`ThreadingHTTPServer`) app exposing `/analyze`, `/feedback`, `/health`; bearer-token auth (`AI_ANALYST_API_TOKEN`) is **on by default**.
 - `feedback_store.py` — append-only JSONL analyst feedback at `~/.cache/ai-analyst/feedback.jsonl`.
 - `notification_service.py` — optional webhook delivery, best-effort (never fails core analysis).
 

@@ -149,6 +149,10 @@ Standard Wazuh ruleset:
   - Netcat/socat connections
 - **T1071** - Application Layer Protocol
   - Reverse shells
+- **T1105** - Ingress Tool Transfer
+  - PowerShell download cradles, macOS download-and-execute patterns
+- **T1132** - Data Encoding
+  - T1132.001 - Standard Encoding (base64/openssl-encoded command data)
 
 ### Exfiltration
 - **T1041** - Exfiltration Over C2 Channel

@@ -89,7 +89,7 @@ cd tf-aws-purple-lab/attack-simulation
 ### 1. Pre-Test Preparation
 ```bash
 # On Wazuh server - Start monitoring alerts
-tail -f /var/ossec/logs/alerts/alerts.log | grep "Rule: 100"
+tail -f /var/ossec/logs/alerts/alerts.log | grep "Rule: 200"
 ```
 
 ### 2. Run Simulation

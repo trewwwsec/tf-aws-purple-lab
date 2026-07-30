@@ -261,7 +261,7 @@ Key capabilities:
 
 - **Hook-first alert ingestion:** Wazuh can send detected alerts to the Alert Analyzer instead of requiring the analyzer to poll Wazuh for alert triage.
 - **Wazuh API access for anomaly detection:** anomaly detection can still query Wazuh for event windows and baselines.
-- **FastAPI server:** exposes alert intake, feedback, webhook, and analysis endpoints.
+- **REST API server:** exposes alert intake, feedback, and analysis endpoints.
 - **RAG playbook mapping:** chunks and retrieves relevant incident-response playbook sections.
 - **Provider support:** OpenAI, Anthropic, and local Ollama-compatible workflows.
 - **Operational feedback:** stores analyst feedback and supports webhook notifications.
@@ -272,7 +272,7 @@ Quick start:
 cd ai-analyst
 uv run --with-requirements requirements.txt python src/analyze_alert.py --demo
 uv run --with-requirements requirements.txt python src/detect_anomalies.py --demo
-uv run --with-requirements requirements.txt uvicorn src.api_server:app --host 0.0.0.0 --port 8000
+uv run --with-requirements requirements.txt python src/api_server.py --host 0.0.0.0 --port 8000
 ```
 
 Regression tests:
@@ -388,7 +388,7 @@ terraform state list
 - Linux, Windows, and macOS security telemetry.
 - Purple-team simulation and detection validation.
 - Incident-response playbook development.
-- Python/FastAPI AI analyst service design.
+- Python AI analyst service design.
 - LLM-assisted triage, RAG retrieval, and anomaly detection.
 
 ---

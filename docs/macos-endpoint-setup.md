@@ -93,16 +93,15 @@ Apple's licensing requires macOS to run on Apple hardware. AWS provides Dedicate
 
 ### Enable macOS in Terraform
 
-1. **Edit the Terraform configuration:**
+1. **Set the flag in `terraform.tfvars`:**
 
-```bash
-cd terraform
-code macos_endpoint.tf  # Uncomment all resources
+```hcl
+enable_macos_endpoint = true
 ```
 
-2. **Uncomment all resources in `macos_endpoint.tf`**
+This gates the macOS Dedicated Host and EC2 instance resources in `terraform/ec2.tf` (`count = var.enable_macos_endpoint ? 1 : 0`).
 
-3. **Deploy:**
+2. **Deploy:**
 
 ```bash
 terraform init
@@ -110,11 +109,11 @@ terraform plan   # Review the cost implications!
 terraform apply
 ```
 
-4. **Wait ~25 minutes for:**
+3. **Wait ~25 minutes for:**
    - Dedicated Host allocation (10-15 min)
    - macOS instance boot (10-15 min)
 
-5. **Connect via SSH:**
+4. **Connect via SSH:**
 
 ```bash
 # Through bastion/Wazuh server (macOS is in private subnet)
