@@ -381,7 +381,7 @@
 <rule id="200262" level="15">
   <decoded_as>auditd</decoded_as>
   <field name="auditd.exe" type="pcre2">(?i)bash|sh|zsh</field>
-  <field name="auditd.a0" type="pcre2">(?i)-i\s+>\&\s*/dev/tcp|/dev/udp</field>
+  <field name="auditd.a0" type="pcre2">(?i)-i\s+>\&amp;\s*/dev/tcp|/dev/udp</field>
   <description>macOS reverse shell detected (CRITICAL)</description>
   <mitre>
     <id>T1059.004</id>
